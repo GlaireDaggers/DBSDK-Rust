@@ -1,5 +1,6 @@
-use std::{alloc::Layout, convert::TryInto, os::raw::c_char};
-use crate::vdp::{Color32, Compare, BlendEquation, BlendFactor, WindingOrder, Topology, Vertex};
+use std::{alloc::Layout, convert::TryInto, os::raw::c_char, ffi::c_void};
+use crate::vdp::*;
+use crate::math::*;
 
 extern {
     pub fn db_log(strptr: *const c_char);
@@ -13,6 +14,20 @@ extern {
     pub fn vdp_setWinding(winding: WindingOrder);
     pub fn vdp_setCulling(enabled: bool);
     pub fn vdp_drawGeometry(topology: Topology, first: i32, count: i32, vertexptr: *const Vertex);
+    pub fn vdp_allocTexture(mipmap: bool, format: TextureFormat, width: i32, height: i32) -> i32;
+    pub fn vdp_releaseTexture(handle: i32);
+    pub fn vdp_getUsage() -> i32;
+    pub fn vdp_setTextureData(handle: i32, level: i32, data: *const c_void, dataLen: i32);
+    pub fn vdp_copyFbToTexture(srcRect: *const Rectangle, dstRect: *const Rectangle, dstTexture: i32);
+    pub fn vdp_setSampleParams(filter: TextureFilter, wrapU: TextureWrap, wrapV: TextureWrap);
+    pub fn vdp_bindTexture(handle: i32);
+    pub fn vdp_viewport(x: i32, y: i32, w: i32, h: i32);
+    pub fn vdp_submitDepthQuery(refVal: f32, compare: Compare, x: i32, y: i32, w: i32, h: i32);
+    pub fn vdp_getDepthQueryResult() -> i32;
+    pub fn mat4_loadSIMD(mat: *const Matrix4x4);
+    pub fn mat4_storeSIMD(mat: *mut Matrix4x4);
+    pub fn mat4_mulSIMD(mat: *const Matrix4x4);
+    pub fn mat4_transformSIMD(invec: *const Vector4, outvec: *const Vector4, count: i32, stride: i32);
 }
 
 #[used]
