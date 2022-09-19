@@ -3,10 +3,14 @@ name = "dbsdk-rs"
 version = "0.1.0"
 edition = "2021"
 authors = [ "Hazel Stagner" ]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/GlaireDaggers/DBSDK-Rust"
+keywords = ["gamedev", "fantasy-console"]
+categories = ["wasm", "game-development", "api-bindings"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 field-offset = "0.3.4"
 bitmask = "0.5.0"
-chrono = "0.4.22"

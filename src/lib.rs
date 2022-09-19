@@ -6,5 +6,5 @@ pub mod audio;
 pub mod gamepad;
 pub mod io;
 pub mod clock;
+pub mod sounddriver;
 pub extern crate field_offset;
-pub extern crate chrono;

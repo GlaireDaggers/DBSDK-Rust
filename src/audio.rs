@@ -2,7 +2,7 @@ use std::{convert::TryInto, mem::transmute};
 
 use crate::db_internal::{audio_alloc, audio_allocCompressed, audio_free, audio_getUsage, audio_queueSetParam_i, audio_queueSetParam_f, audio_queueStartVoice, audio_queueStopVoice, audio_getVoiceState, audio_getTime, audio_setReverbParams, audio_initSynth, audio_playMidi, audio_setMidiReverb, audio_setMidiVolume};
 
-pub const VOICE_COUNT : i32 = 32;
+pub const VOICE_COUNT: usize = 32;
 
 #[repr(C)]
 #[derive(Clone)]
@@ -84,31 +84,31 @@ pub fn get_usage() -> i32 {
 
 /// Schedule an audio voice integer parameter change at some point in the future
 pub fn queue_set_voice_param_i(slot: i32, param: AudioVoiceParam, value: i32, time: f64) {
-    assert!(slot >= 0 && slot < VOICE_COUNT, "Tried to set parameter for invalid voice handle");
+    assert!(slot >= 0 && slot < VOICE_COUNT.try_into().unwrap(), "Tried to set parameter for invalid voice handle");
     unsafe { audio_queueSetParam_i(slot, param, value, time); }
 }
 
 /// Schedule an audio voice float parameter change at some point in the future
 pub fn queue_set_voice_param_f(slot: i32, param: AudioVoiceParam, value: f32, time: f64) {
-    assert!(slot >= 0 && slot < VOICE_COUNT, "Tried to set parameter for invalid voice handle");
+    assert!(slot >= 0 && slot < VOICE_COUNT.try_into().unwrap(), "Tried to set parameter for invalid voice handle");
     unsafe { audio_queueSetParam_f(slot, param, value, time); }
 }
 
 /// Schedule an audio voice to start playing at some point in the future
 pub fn queue_start_voice(slot: i32, time: f64) {
-    assert!(slot >= 0 && slot < VOICE_COUNT, "Tried to start invalid voice handle");
+    assert!(slot >= 0 && slot < VOICE_COUNT.try_into().unwrap(), "Tried to start invalid voice handle");
     unsafe { audio_queueStartVoice(slot, time) };
 }
 
 /// Schedule an audio voice to stop playing at some point in the future
 pub fn queue_stop_voice(slot: i32, time: f64) {
-    assert!(slot >= 0 && slot < VOICE_COUNT, "Tried to stop invalid voice handle");
+    assert!(slot >= 0 && slot < VOICE_COUNT.try_into().unwrap(), "Tried to stop invalid voice handle");
     unsafe { audio_queueStopVoice(slot, time) };
 }
 
 /// Gets whether the given voice is currently playing
 pub fn get_voice_state(slot: i32) -> bool {
-    assert!(slot >= 0 && slot < VOICE_COUNT, "Tried to get state of invalid voice handle");
+    assert!(slot >= 0 && slot < VOICE_COUNT.try_into().unwrap(), "Tried to get state of invalid voice handle");
     unsafe { return audio_getVoiceState(slot) };
 }
 

@@ -1,8 +1,6 @@
-use std::{ffi::{CString, CStr}, convert::TryInto, mem::transmute};
+use std::{ffi::{CString, CStr}, convert::TryInto, mem::{transmute, size_of}};
 
-use chrono::Local;
-
-use crate::db_internal::{fs_close, fs_open, fs_read, fs_write, fs_seek, fs_tell, fs_eof, fs_deviceExists, fs_deviceEject, fs_fileExists, fs_closeDir, fs_openDir, fs_readDir, NativeDateTime, clock_timestampToDatetime, fs_rewindDir, fs_allocMemoryCard};
+use crate::{db_internal::{fs_close, fs_open, fs_read, fs_write, fs_seek, fs_tell, fs_eof, fs_deviceExists, fs_deviceEject, fs_fileExists, fs_closeDir, fs_openDir, fs_readDir, clock_timestampToDatetime, fs_rewindDir, fs_allocMemoryCard}, clock::DateTime};
 
 const EACCESS: i32 = 2;
 const EEXIST: i32 = 20;
@@ -41,6 +39,7 @@ pub enum IOError {
     FileTooBig,
     FileAlreadyExists,
     NoSpaceOnDevice,
+    ReachedEndOfFile
 }
 
 pub struct FileStream {
@@ -110,8 +109,26 @@ impl FileStream {
         }
     }
 
+    /// Read file until EOF into the given string buffer
+    pub fn read_to_string(&self, buffer: &mut String) -> Result<usize, IOError> {
+        let mut buf: [u8;32] = [0;32];
+
+        while !self.end_of_file() {
+            let result = self.read(&mut buf)?;
+            if result == 0 { break; }
+
+            let str = &buf[0..result];
+            match std::str::from_utf8(str) {
+                Ok(v) => { buffer.push_str(v) }
+                Err(_) => { break; }
+            }
+        }
+
+        return Ok(0);
+    }
+
     /// Try to read a number of bytes from the stream, returning the actual number of bytes read
-    pub fn read(self, buffer: &mut[u8]) -> Result<i32, IOError> {
+    pub fn read(&self, buffer: &mut[u8]) -> Result<usize, IOError> {
         unsafe {
             let result = fs_read(self.handle, transmute(buffer.as_mut_ptr()), buffer.len().try_into().unwrap());
 
@@ -126,12 +143,25 @@ impl FileStream {
                 }
             }
 
-            return Ok(result);
+            return Ok(result.try_into().unwrap());
+        }
+    }
+
+    /// Read an element from the stream, returning an error if there aren't enough bytes in the stream or some other error occurs
+    pub fn read_element<T: Copy>(&self) -> Result<T, IOError> {
+        let mut buf : Vec<u8> = vec![0;size_of::<T>()];
+        let result = TryInto::<usize>::try_into(self.read(buf.as_mut_slice())?).unwrap();
+        if result != buf.len() {
+            return Err(IOError::ReachedEndOfFile);
+        }
+        unsafe {
+            let data = *(transmute::<*const u8, *const T>(buf.as_ptr()));
+            return Ok(data);
         }
     }
 
     /// Try to write a buffer of bytes to the stream, returning the actual number of bytes written
-    pub fn write(self, buffer: &[u8]) -> Result<i32, IOError> {
+    pub fn write(&self, buffer: &[u8]) -> Result<i32, IOError> {
         unsafe {
             let result = fs_write(self.handle, transmute(buffer.as_ptr()), buffer.len().try_into().unwrap());
 
@@ -154,7 +184,7 @@ impl FileStream {
     }
 
     /// Try to seek the stream to the given position, returning the new position
-    pub fn seek(self, position: i32, origin: SeekOrigin) -> Result<i32, IOError> {
+    pub fn seek(&self, position: i32, origin: SeekOrigin) -> Result<i32, IOError> {
         unsafe {
             let result = fs_seek(self.handle, position, origin);
 
@@ -174,14 +204,14 @@ impl FileStream {
     }
 
     /// Get the position within the stream
-    pub fn position(self) -> i32 {
+    pub fn position(&self) -> i32 {
         unsafe {
             return fs_tell(self.handle);
         }
     }
 
     /// Gets whether the stream has reached its end
-    pub fn end_of_file(self) -> bool {
+    pub fn end_of_file(&self) -> bool {
         unsafe {
             return fs_eof(self.handle);
         }
@@ -198,8 +228,8 @@ pub struct DirectoryEntry {
     pub name: String,
     pub is_directory: bool,
     pub size: i32,
-    pub created: chrono::DateTime<Local>,
-    pub modified: chrono::DateTime<Local>,
+    pub created: DateTime,
+    pub modified: DateTime,
 }
 
 pub struct DirectoryInfo {
@@ -245,7 +275,7 @@ impl DirectoryInfo {
             let name_cstr = CStr::from_ptr((*dir_info_ptr).name.as_ptr());
             let name_str = name_cstr.to_str().unwrap();
 
-            let mut created_dt = NativeDateTime {
+            let mut created_dt = DateTime {
                 year: 0,
                 month: 0,
                 day: 0,
@@ -255,7 +285,7 @@ impl DirectoryInfo {
             };
             clock_timestampToDatetime((*dir_info_ptr).created, &mut created_dt);
 
-            let mut modified_dt = NativeDateTime {
+            let mut modified_dt = DateTime {
                 year: 0,
                 month: 0,
                 day: 0,
@@ -269,8 +299,8 @@ impl DirectoryInfo {
                 name: String::from(name_str),
                 is_directory: (*dir_info_ptr).is_directory != 0,
                 size: (*dir_info_ptr).size,
-                created: NativeDateTime::to_chrono(created_dt),
-                modified: NativeDateTime::to_chrono(modified_dt),
+                created: created_dt,
+                modified: modified_dt,
             });
         }
     }

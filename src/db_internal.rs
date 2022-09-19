@@ -1,7 +1,6 @@
 use std::{alloc::Layout, convert::TryInto, os::raw::c_char, ffi::c_void};
-use chrono::Local;
-use chrono::TimeZone;
 
+use crate::clock::DateTime;
 use crate::gamepad::GamepadSlot;
 use crate::gamepad::GamepadState;
 use crate::io::FileMode;
@@ -17,25 +16,6 @@ pub struct NativeDirectoryInfo {
     pub modified: u64,
     pub size: i32,
     pub is_directory: u32,
-}
-
-#[repr(C)]
-pub struct NativeDateTime {
-    pub year: u16,
-    pub month: u8,
-    pub day: u8,
-    pub hour: u8,
-    pub minute: u8,
-    pub second: u8,
-}
-
-impl NativeDateTime {
-    pub fn to_chrono(self) -> chrono::DateTime<Local> {
-        let dt = Local.ymd(self.year.try_into().unwrap(), self.month.try_into().unwrap(), self.day.try_into().unwrap())
-            .and_hms(self.hour.try_into().unwrap(), self.minute.try_into().unwrap(), self.second.try_into().unwrap());
-
-        return dt;
-    }
 }
 
 extern {
@@ -98,7 +78,7 @@ extern {
     pub fn fs_closeDir(dir: i32);
     pub fn fs_allocMemoryCard(filenamestr: *const c_char, icondata: *const u8, iconpalette: *const u16, blocks: i32) -> i32;
     pub fn clock_getTimestamp() -> u64;
-    pub fn clock_timestampToDatetime(timestamp: u64, datetime: *mut NativeDateTime);
+    pub fn clock_timestampToDatetime(timestamp: u64, datetime: *mut DateTime);
     // pub fn clock_datetimeToTimestamp(datetime: *const NativeDateTime) -> u64;
 }
 

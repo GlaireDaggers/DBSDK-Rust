@@ -52,6 +52,13 @@ impl Vector2 {
         return ((self.x * self.x) + (self.y * self.y)).sqrt();
     }
 
+    /// Normalize the vector
+    pub fn normalize(&mut self) {
+        let mag = 1.0 / (self.x * self.x + self.y * self.y).sqrt();
+        self.x *= mag;
+        self.y *= mag;
+    }
+
     /// Compute the dot product of two vectors
     pub fn dot(lhs: &Vector2, rhs: &Vector2) -> f32 {
         return (lhs.x * rhs.x) + (lhs.y * rhs.y);
@@ -175,6 +182,14 @@ impl Vector3 {
     /// Compute the length of the vector
     pub fn length(self) -> f32 {
         return ((self.x * self.x) + (self.y * self.y) + (self.z * self.z)).sqrt();
+    }
+
+    /// Normalize the vector
+    pub fn normalize(&mut self) {
+        let mag = 1.0 / (self.x * self.x + self.y * self.y + self.z * self.z).sqrt();
+        self.x *= mag;
+        self.y *= mag;
+        self.z *= mag;
     }
 
     /// Compute the dot product of two vectors
@@ -316,6 +331,15 @@ impl Vector4 {
     /// Compute the length of the vector
     pub fn length(self) -> f32 {
         return ((self.x * self.x) + (self.y * self.y) + (self.z * self.z) + (self.w * self.w)).sqrt();
+    }
+
+    /// Normalize the vector
+    pub fn normalize(&mut self) {
+        let mag = 1.0 / (self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w).sqrt();
+        self.x *= mag;
+        self.y *= mag;
+        self.z *= mag;
+        self.w *= mag;
     }
 
     /// Compute the dot product of two vectors
