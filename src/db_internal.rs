@@ -1,6 +1,7 @@
 use std::{alloc::Layout, convert::TryInto, os::raw::c_char, ffi::c_void};
 use crate::vdp::*;
 use crate::math::*;
+use crate::audio::*;
 
 extern {
     pub fn db_log(strptr: *const c_char);
@@ -28,6 +29,21 @@ extern {
     pub fn mat4_storeSIMD(mat: *mut Matrix4x4);
     pub fn mat4_mulSIMD(mat: *const Matrix4x4);
     pub fn mat4_transformSIMD(invec: *const Vector4, outvec: *const Vector4, count: i32, stride: i32);
+    pub fn audio_alloc(data: *const c_void, dataLen: i32, audioFmt: i32) -> i32;
+    pub fn audio_allocCompressed(data: *const c_void, dataLen: i32, chunkLen: i32) -> i32;
+    pub fn audio_free(handle: i32);
+    pub fn audio_getUsage() -> i32;
+    pub fn audio_queueSetParam_i(slot: i32, param: AudioVoiceParam, value: i32, time: f64);
+    pub fn audio_queueSetParam_f(slot: i32, param: AudioVoiceParam, value: f32, time: f64);
+    pub fn audio_queueStartVoice(slot: i32, time: f64);
+    pub fn audio_queueStopVoice(slot: i32, time: f64);
+    pub fn audio_getVoiceState(slot: i32) -> bool;
+    pub fn audio_getTime() -> f64;
+    pub fn audio_setReverbParams(roomSize: f32, damping: f32, width: f32, wet: f32, dry: f32);
+    pub fn audio_initSynth(dataPtr: *const u8, dataLen: i32) -> bool;
+    pub fn audio_playMidi(dataPtr: *const u8, dataLen: i32, looping: bool) -> bool;
+    pub fn audio_setMidiReverb(enable: bool);
+    pub fn audio_setMidiVolume(volume: f32);
 }
 
 #[used]
