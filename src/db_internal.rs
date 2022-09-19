@@ -1,4 +1,6 @@
 use std::{alloc::Layout, convert::TryInto, os::raw::c_char, ffi::c_void};
+use crate::gamepad::GamepadSlot;
+use crate::gamepad::GamepadState;
 use crate::vdp::*;
 use crate::math::*;
 use crate::audio::*;
@@ -44,6 +46,9 @@ extern {
     pub fn audio_playMidi(dataPtr: *const u8, dataLen: i32, looping: bool) -> bool;
     pub fn audio_setMidiReverb(enable: bool);
     pub fn audio_setMidiVolume(volume: f32);
+    pub fn gamepad_isConnected(slot: GamepadSlot) -> bool;
+    pub fn gamepad_readState(slot: GamepadSlot, ptr: *mut GamepadState);
+    pub fn gamepad_setRumble(slot: GamepadSlot, enable: bool);
 }
 
 #[used]

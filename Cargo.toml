@@ -8,3 +8,4 @@ authors = [ "Hazel Stagner" ]
 
 [dependencies]
 field-offset = "0.3.4"
+bitmask = "0.5.0"
