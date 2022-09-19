@@ -1,9 +1,42 @@
 use std::{alloc::Layout, convert::TryInto, os::raw::c_char, ffi::c_void};
+use chrono::Local;
+use chrono::TimeZone;
+
 use crate::gamepad::GamepadSlot;
 use crate::gamepad::GamepadState;
+use crate::io::FileMode;
+use crate::io::SeekOrigin;
 use crate::vdp::*;
 use crate::math::*;
 use crate::audio::*;
+
+#[repr(C)]
+pub struct NativeDirectoryInfo {
+    pub name: [i8;32],
+    pub created: u64,
+    pub modified: u64,
+    pub size: i32,
+    pub is_directory: u32,
+}
+
+#[repr(C)]
+pub struct NativeDateTime {
+    pub year: u16,
+    pub month: u8,
+    pub day: u8,
+    pub hour: u8,
+    pub minute: u8,
+    pub second: u8,
+}
+
+impl NativeDateTime {
+    pub fn to_chrono(self) -> chrono::DateTime<Local> {
+        let dt = Local.ymd(self.year.try_into().unwrap(), self.month.try_into().unwrap(), self.day.try_into().unwrap())
+            .and_hms(self.hour.try_into().unwrap(), self.minute.try_into().unwrap(), self.second.try_into().unwrap());
+
+        return dt;
+    }
+}
 
 extern {
     pub fn db_log(strptr: *const c_char);
@@ -49,6 +82,24 @@ extern {
     pub fn gamepad_isConnected(slot: GamepadSlot) -> bool;
     pub fn gamepad_readState(slot: GamepadSlot, ptr: *mut GamepadState);
     pub fn gamepad_setRumble(slot: GamepadSlot, enable: bool);
+    pub fn fs_deviceExists(devstr: *const c_char) -> bool;
+    pub fn fs_deviceEject(devstr: *const c_char);
+    pub fn fs_fileExists(pathstr: *const c_char) -> bool;
+    pub fn fs_open(pathstr: *const c_char, mode: FileMode) -> i32;
+    pub fn fs_read(handle: i32, buffer: *mut c_void, bufferLen: i32) -> i32;
+    pub fn fs_write(handle: i32, buffer: *const c_void, bufferLen: i32) -> i32;
+    pub fn fs_seek(handle: i32, position: i32, whence: SeekOrigin) -> i32;
+    pub fn fs_tell(handle: i32) -> i32;
+    pub fn fs_close(handle: i32);
+    pub fn fs_eof(handle: i32) -> bool;
+    pub fn fs_openDir(pathstr: *const c_char) -> i32;
+    pub fn fs_readDir(dir: i32) -> *const NativeDirectoryInfo;
+    pub fn fs_rewindDir(dir: i32);
+    pub fn fs_closeDir(dir: i32);
+    pub fn fs_allocMemoryCard(filenamestr: *const c_char, icondata: *const u8, iconpalette: *const u16, blocks: i32) -> i32;
+    pub fn clock_getTimestamp() -> u64;
+    pub fn clock_timestampToDatetime(timestamp: u64, datetime: *mut NativeDateTime);
+    // pub fn clock_datetimeToTimestamp(datetime: *const NativeDateTime) -> u64;
 }
 
 #[used]

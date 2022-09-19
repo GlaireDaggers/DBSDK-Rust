@@ -4,4 +4,7 @@ pub mod vdp;
 pub mod math;
 pub mod audio;
 pub mod gamepad;
+pub mod io;
+pub mod clock;
 pub extern crate field_offset;
+pub extern crate chrono;
