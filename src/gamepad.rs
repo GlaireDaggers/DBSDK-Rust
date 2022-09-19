@@ -61,19 +61,19 @@ impl Gamepad {
     }
 
     /// Check whether this gamepad is connected
-    pub fn is_connected(self) -> bool {
+    pub fn is_connected(&self) -> bool {
         unsafe { return gamepad_isConnected(self.slot); }
     }
 
     /// Read the state of this gamepad
-    pub fn read_state(self) -> GamepadState {
+    pub fn read_state(&self) -> GamepadState {
         let mut state = GamepadState { button_mask: GamepadButtonMask::none(), left_stick_x: 0, left_stick_y: 0, right_stick_x: 0, right_stick_y: 0 };
         unsafe { gamepad_readState(self.slot, &mut state); }
         return state;
     }
 
     /// Set this gamepad's vibration on or off
-    pub fn set_rumble(self, enable: bool) {
+    pub fn set_rumble(&self, enable: bool) {
         unsafe { gamepad_setRumble(self.slot, enable); }
     }
 }

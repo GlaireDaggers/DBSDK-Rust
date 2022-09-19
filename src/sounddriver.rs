@@ -1,4 +1,4 @@
-use std::{convert::TryInto, rc::{Rc, Weak}, mem::{size_of, transmute}};
+use std::{convert::TryInto, mem::{size_of, transmute}, sync::{Arc, Weak}};
 
 use crate::{audio::{VOICE_COUNT, AudioSample, get_voice_state, queue_stop_voice, get_time, queue_start_voice, queue_set_voice_param_f, AudioVoiceParam, queue_set_voice_param_i}, math::{Vector3, Quaternion}, io::{FileStream, SeekOrigin}};
 
@@ -12,7 +12,7 @@ pub enum AttenuationType {
 
 #[derive(Clone, Copy)]
 struct SoundVoice {
-    slot: u32,
+    slot: i32,
     priority: u8,
     _is_playing: bool,
     id: u32,
@@ -33,7 +33,7 @@ pub struct SoundEmitter {
     pub volume: f32,
     pub pitch: f32,
     pub pan: f32,
-    sample: AudioSample,
+    sample: Arc<AudioSample>,
     id: u32,
     voice: Option<i32>,
 }
@@ -67,11 +67,12 @@ struct WavChunkHeader {
 }
 
 pub struct SoundDriver {
-    _max_voices: usize,
+    max_voices: usize,
     voices: [SoundVoice;VOICE_COUNT],
-    emitters: Vec<Rc<SoundEmitter>>,
+    emitters: Vec<Arc<SoundEmitter>>,
     listener_position: Vector3,
     listener_orientation: Quaternion,
+    search_offset: usize,
 }
 
 impl SoundDriver {
@@ -80,7 +81,7 @@ impl SoundDriver {
         assert!(max_voices < VOICE_COUNT, "Cannot init sound driver with more than {} voices", VOICE_COUNT);
 
         let mut driver = SoundDriver {
-            _max_voices: max_voices,
+            max_voices: max_voices,
             voices: [
                 SoundVoice {
                     slot: 0,
@@ -93,6 +94,7 @@ impl SoundDriver {
             emitters: Vec::new(),
             listener_position: Vector3::zero(),
             listener_orientation: Quaternion::identity(),
+            search_offset: 0,
         };
 
         for i in 0..VOICE_COUNT {
@@ -102,12 +104,51 @@ impl SoundDriver {
         return driver;
     }
 
-    fn allocate_voice(_priority: u8) -> Option<usize> {
-        return None;
+    fn allocate_voice(voices: &mut [SoundVoice], search_offset: &mut usize, max_voice: usize, priority: u8) -> Option<usize> {
+        // a little silly but:
+        // voice stealing scheme can sometimes steal voices too early because we have to schedule playback in advance
+        // a simple round-robin search offset helps alleviate this
+
+        let mut ret: Option<usize> = None;
+
+        for i in 0..max_voice {
+            let idx = (i + *search_offset) % max_voice;
+            let voice = &voices[idx];
+
+            if !voice._is_playing && !get_voice_state(voice.slot) {
+                ret = Some(idx);
+                break;
+            } else {
+                match ret {
+                    Some(r) => {
+                        let rv = &voices[r];
+                        if voice.play_time < rv.play_time && voice.priority >= priority {
+                            ret = Some(idx);
+                        }
+                    },
+                    None => {
+                        ret = Some(idx);
+                    }
+                };
+            }
+        }
+
+        *search_offset = (*search_offset + 1) % max_voice;
+
+        match ret {
+            Some(r) => {
+                let rv = &mut voices[r];
+                rv.priority = priority;
+            },
+            None => {
+            }
+        }
+
+        return ret;
     }
    
-    fn assign_hw_voice(listener_position: &Vector3, listener_orientation: &Quaternion, voices: &mut [SoundVoice], emitter: &mut SoundEmitter) {
-        let voice = SoundDriver::allocate_voice(emitter.priority);
+    fn assign_hw_voice(listener_position: &Vector3, listener_orientation: &Quaternion, voices: &mut [SoundVoice], search_offset: &mut usize, max_voice: usize, emitter: &mut SoundEmitter) {
+        let voice = SoundDriver::allocate_voice(voices, search_offset, max_voice, emitter.priority);
 
         if voice.is_some() {
             let idx = voice.unwrap();
@@ -115,6 +156,7 @@ impl SoundDriver {
             voices[idx].play_time = t;
             voices[idx].id += 1;
             emitter.voice = Some(idx.try_into().unwrap());
+            emitter.id = voices[idx].id;
 
             SoundDriver::update_voice(listener_position, listener_orientation, &voices[idx], emitter);
             queue_start_voice(idx.try_into().unwrap(), t);
@@ -188,13 +230,18 @@ impl SoundDriver {
     pub fn update(&mut self) {
         let emitters = self.emitters.as_mut_slice();
         for emitter_rc in emitters {
-            let emitter = Rc::get_mut(emitter_rc).unwrap();
+            let emitter = Arc::get_mut(emitter_rc).unwrap();
             // update voice states & assign voices to emitters which are waiting for a voice
             let voice = emitter.voice;
-            if !voice.is_some() && emitter.looping {
-                SoundDriver::assign_hw_voice(&self.listener_position, &self.listener_orientation, &mut self.voices, emitter);
-            } else {
-                SoundDriver::update_voice(&self.listener_position, &self.listener_orientation, &self.voices[TryInto::<usize>::try_into(voice.unwrap()).unwrap()], emitter);
+            match voice {
+                Some(v) => {
+                    SoundDriver::update_voice(&self.listener_position, &self.listener_orientation, &self.voices[TryInto::<usize>::try_into(v).unwrap()], emitter);
+                },
+                None => {
+                    if emitter.looping {
+                        SoundDriver::assign_hw_voice(&self.listener_position, &self.listener_orientation, &mut self.voices, &mut self.search_offset, self.max_voices, emitter);
+                    }
+                }
             }
 
             // for non-looping sounds: if the voice stops playing, or the sound's voice has been stolen, just stop emitter and remove from list
@@ -205,68 +252,23 @@ impl SoundDriver {
 
         // remove any emitters which are no longer valid
         self.emitters.retain(|x| {
-            !x.is_valid
+            x.is_valid
         });
     }
 
     /// Play a fire and forget sound effect
-    pub fn play_one_shot(&mut self, priority: u8, sample: AudioSample, reverb: bool, volume: f32, pitch: f32, pan: f32) {
-        let voice = SoundDriver::allocate_voice(priority);
-        if voice.is_some() {
-            let t = get_time();
-            let idx = voice.unwrap();
-
-            self.voices[idx].play_time = t;
-            self.voices[idx].id += 1;
-            
-            let voice_slot = TryInto::<i32>::try_into(idx).unwrap();
-            queue_set_voice_param_i(voice_slot, AudioVoiceParam::SampleData, sample.handle, t);
-            queue_set_voice_param_i(voice_slot, AudioVoiceParam::Samplerate, sample.samplerate, t);
-            queue_set_voice_param_i(voice_slot, AudioVoiceParam::LoopEnabled, 0, t);
-            queue_set_voice_param_i(voice_slot, AudioVoiceParam::LoopStart, 0, t);
-            queue_set_voice_param_i(voice_slot, AudioVoiceParam::LoopEnd, 0, t);
-            queue_set_voice_param_i(voice_slot, AudioVoiceParam::Reverb, if reverb { 1 } else { 0 }, t);
-            queue_set_voice_param_f(voice_slot, AudioVoiceParam::Volume, volume, t);
-            queue_set_voice_param_f(voice_slot, AudioVoiceParam::Detune, 0.0, t);
-            queue_set_voice_param_f(voice_slot, AudioVoiceParam::Pan, pan, t);
-            queue_set_voice_param_f(voice_slot, AudioVoiceParam::Pitch, pitch, t);
-            queue_set_voice_param_f(voice_slot, AudioVoiceParam::FadeInDuration, 0.0, t);
-            queue_set_voice_param_f(voice_slot, AudioVoiceParam::FadeOutDuration, 0.0, t);
-        }
+    pub fn play_one_shot(&mut self, priority: u8, sample: &Arc<AudioSample>, reverb: bool, volume: f32, pitch: f32, pan: f32) {
+        _ = self.play(priority, sample, false, reverb, volume, pitch, pan);
     }
 
     /// Play a fire and forget sound effect in 3D
-    pub fn play_one_shot_3d(&mut self, priority: u8, sample: AudioSample, reverb: bool, volume: f32, pitch: f32,
+    pub fn play_one_shot_3d(&mut self, priority: u8, sample: &Arc<AudioSample>, reverb: bool, volume: f32, pitch: f32,
         position: Vector3, atten_type: AttenuationType, atten_min_dist: f32, atten_max_dist: f32, atten_rolloff: f32) {
-        let voice = SoundDriver::allocate_voice(priority);
-        if voice.is_some() {
-            let t = get_time();
-            let idx = voice.unwrap();
-
-            self.voices[idx].play_time = t;
-            self.voices[idx].id += 1;
-
-            let (gain3d, pan3d) = SoundDriver::calc_3d(&self.listener_position, &self.listener_orientation,
-                &position, atten_type, atten_min_dist, atten_max_dist, atten_rolloff);
-            
-            let voice_slot = TryInto::<i32>::try_into(idx).unwrap();
-            queue_set_voice_param_i(voice_slot, AudioVoiceParam::SampleData, sample.handle, t);
-            queue_set_voice_param_i(voice_slot, AudioVoiceParam::Samplerate, sample.samplerate, t);
-            queue_set_voice_param_i(voice_slot, AudioVoiceParam::LoopEnabled, 0, t);
-            queue_set_voice_param_i(voice_slot, AudioVoiceParam::LoopStart, 0, t);
-            queue_set_voice_param_i(voice_slot, AudioVoiceParam::LoopEnd, 0, t);
-            queue_set_voice_param_i(voice_slot, AudioVoiceParam::Reverb, if reverb { 1 } else { 0 }, t);
-            queue_set_voice_param_f(voice_slot, AudioVoiceParam::Volume, volume * gain3d, t);
-            queue_set_voice_param_f(voice_slot, AudioVoiceParam::Detune, 0.0, t);
-            queue_set_voice_param_f(voice_slot, AudioVoiceParam::Pan, pan3d, t);
-            queue_set_voice_param_f(voice_slot, AudioVoiceParam::Pitch, pitch, t);
-            queue_set_voice_param_f(voice_slot, AudioVoiceParam::FadeInDuration, 0.0, t);
-            queue_set_voice_param_f(voice_slot, AudioVoiceParam::FadeOutDuration, 0.0, t);
-        }
+        _ = self.play_3d(priority, sample, false, reverb, volume, pitch, position, atten_type, atten_min_dist, atten_max_dist, atten_rolloff);
     }
 
     /// Start playing a sound effect and return a handle to it
-    pub fn play(&mut self, priority: u8, sample: AudioSample, looping: bool, reverb: bool, volume: f32, pitch: f32, pan: f32) -> Weak<SoundEmitter> {
+    pub fn play(&mut self, priority: u8, sample: &Arc<AudioSample>, looping: bool, reverb: bool, volume: f32, pitch: f32, pan: f32) -> Weak<SoundEmitter> {
         let mut emitter = SoundEmitter {
             is_valid: true,
             priority: priority,
@@ -281,21 +283,21 @@ impl SoundDriver {
             volume: volume,
             pitch: pitch,
             pan: pan,
-            sample: sample,
+            sample: sample.clone(),
             id: 0,
             voice: None
         };
-        SoundDriver::assign_hw_voice(&self.listener_position, &self.listener_orientation, &mut self.voices, &mut emitter);
+        SoundDriver::assign_hw_voice(&self.listener_position, &self.listener_orientation, &mut self.voices, &mut self.search_offset, self.max_voices, &mut emitter);
 
-        let rc = Rc::new(emitter);
-        let em_ref = Rc::downgrade(&rc);
+        let rc = Arc::new(emitter);
+        let em_ref = Arc::downgrade(&rc);
         self.emitters.push(rc);
 
         return em_ref;
     }
 
     /// Start playing a 3D sound effect and return a handle to it
-    pub fn play_3d(&mut self, priority: u8, sample: AudioSample, looping: bool, reverb: bool, volume: f32, pitch: f32,
+    pub fn play_3d(&mut self, priority: u8, sample: &Arc<AudioSample>, looping: bool, reverb: bool, volume: f32, pitch: f32,
         position: Vector3, atten_type: AttenuationType, atten_min_dist: f32, atten_max_dist: f32, atten_rolloff: f32) -> Weak<SoundEmitter> {
         let mut emitter = SoundEmitter {
             is_valid: true,
@@ -311,14 +313,14 @@ impl SoundDriver {
             volume: volume,
             pitch: pitch,
             pan: 0.0,
-            sample: sample,
+            sample: sample.clone(),
             id: 0,
             voice: None
         };
-        SoundDriver::assign_hw_voice(&self.listener_position, &self.listener_orientation, &mut self.voices, &mut emitter);
+        SoundDriver::assign_hw_voice(&self.listener_position, &self.listener_orientation, &mut self.voices, &mut self.search_offset, self.max_voices, &mut emitter);
 
-        let rc = Rc::new(emitter);
-        let em_ref = Rc::downgrade(&rc);
+        let rc = Arc::new(emitter);
+        let em_ref = Arc::downgrade(&rc);
         self.emitters.push(rc);
 
         return em_ref;
@@ -332,7 +334,7 @@ impl SoundDriver {
         }
 
         let mut em = rc.unwrap();
-        let emitter = Rc::get_mut(&mut em).unwrap();
+        let emitter = Arc::get_mut(&mut em).unwrap();
 
         if !emitter.is_valid { return; }
 
