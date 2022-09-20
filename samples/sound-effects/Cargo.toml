@@ -1,0 +1,11 @@
+[package]
+name = "sound-effects-rs"
+version = "1.0.0"
+authors = [""]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+dbsdk-rs = "0.1.2"
+lazy_static = "1.4.0"

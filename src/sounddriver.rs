@@ -78,7 +78,7 @@ pub struct SoundDriver {
 impl SoundDriver {
     /// Construct a new instance of the SoundDriver
     pub fn new(max_voices: usize) -> SoundDriver {
-        assert!(max_voices < VOICE_COUNT, "Cannot init sound driver with more than {} voices", VOICE_COUNT);
+        assert!(max_voices <= VOICE_COUNT, "Cannot init sound driver with more than {} voices", VOICE_COUNT);
 
         let mut driver = SoundDriver {
             max_voices: max_voices,
