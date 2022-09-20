@@ -72,7 +72,7 @@ fn tick() {
     Matrix4x4::load_simd(&ortho);
     Matrix4x4::transform_vertex_simd(&mut triangles, offset_of!(vdp::Vertex => position));
 
-    vdp::draw_geometry(vdp::Topology::TriangleList, 0, 3, &triangles);
+    vdp::draw_geometry(vdp::Topology::TriangleList, &triangles);
 }
 
 #[no_mangle]

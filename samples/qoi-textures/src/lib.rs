@@ -85,7 +85,7 @@ fn tick() {
 
     let texref = BRICK_TEXTURE.read().unwrap();
     vdp::bind_texture(Some(&texref));
-    vdp::draw_geometry(vdp::Topology::TriangleList, 0, 3, &triangles);
+    vdp::draw_geometry(vdp::Topology::TriangleList, &triangles);
 }
 
 #[no_mangle]

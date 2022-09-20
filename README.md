@@ -5,8 +5,8 @@ SDK for writing DreamBox games in Rust
 Add the following line to the dependencies section of your Cargo.toml:
 
 ```
-dbsdk-rs = "0.1.3"
+dbsdk-rs = "0.1.4"
 ```
 
 ## Documentation
-View docs at https://docs.rs/dbsdk-rs/0.1.3/dbsdk_rs/
+View docs at https://docs.rs/dbsdk-rs/0.1.4/dbsdk_rs/

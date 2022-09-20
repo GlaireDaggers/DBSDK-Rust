@@ -233,8 +233,8 @@ pub fn set_culling(enabled: bool) {
 }
 
 /// Submit a buffer of geometry to draw
-pub fn draw_geometry(topology: Topology, first: i32, count: i32, vertex_data: &[Vertex]) {
-    unsafe { vdp_drawGeometry(topology, first, count, vertex_data.as_ptr()) };
+pub fn draw_geometry(topology: Topology, vertex_data: &[Vertex]) {
+    unsafe { vdp_drawGeometry(topology, 0, vertex_data.len().try_into().unwrap(), vertex_data.as_ptr()) };
 }
 
 /// Get total texture memory usage in bytes
