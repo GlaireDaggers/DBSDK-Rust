@@ -1,4 +1,4 @@
-use std::{convert::TryInto, mem::{size_of, transmute}, sync::{Arc, Weak}};
+use std::{convert::TryInto, mem::{size_of, transmute}, cell::RefCell, sync::{Weak, RwLock}, sync::Arc};
 
 use crate::{audio::{VOICE_COUNT, AudioSample, get_voice_state, queue_stop_voice, get_time, queue_start_voice, queue_set_voice_param_f, AudioVoiceParam, queue_set_voice_param_i}, math::{Vector3, Quaternion}, io::{FileStream, SeekOrigin}};
 
@@ -69,7 +69,7 @@ struct WavChunkHeader {
 pub struct SoundDriver {
     max_voices: usize,
     voices: [SoundVoice;VOICE_COUNT],
-    emitters: Vec<Arc<SoundEmitter>>,
+    emitters: Vec<Arc<RwLock<SoundEmitter>>>,
     listener_position: Vector3,
     listener_orientation: Quaternion,
     search_offset: usize,
@@ -230,45 +230,39 @@ impl SoundDriver {
     pub fn update(&mut self) {
         let emitters = self.emitters.as_mut_slice();
         for emitter_rc in emitters {
-            let emitter = Arc::get_mut(emitter_rc).unwrap();
-            // update voice states & assign voices to emitters which are waiting for a voice
-            let voice = emitter.voice;
-            match voice {
-                Some(v) => {
-                    SoundDriver::update_voice(&self.listener_position, &self.listener_orientation, &self.voices[TryInto::<usize>::try_into(v).unwrap()], emitter);
-                },
-                None => {
-                    if emitter.looping {
-                        SoundDriver::assign_hw_voice(&self.listener_position, &self.listener_orientation, &mut self.voices, &mut self.search_offset, self.max_voices, emitter);
+            let voice = {
+                emitter_rc.read().unwrap().voice
+            };
+            {
+                let mut emref = emitter_rc.write().unwrap();
+                match voice {
+                    Some(v) => {
+                        SoundDriver::update_voice(&self.listener_position, &self.listener_orientation, &self.voices[TryInto::<usize>::try_into(v).unwrap()], &mut emref);
+                    },
+                    None => {
+                        if emref.looping {
+                            SoundDriver::assign_hw_voice(&self.listener_position, &self.listener_orientation, &mut self.voices, &mut self.search_offset, self.max_voices, &mut emref);
+                        }
                     }
                 }
             }
-
-            // for non-looping sounds: if the voice stops playing, or the sound's voice has been stolen, just stop emitter and remove from list
-            if !emitter.looping && (!voice.is_some() || !get_voice_state(voice.unwrap().try_into().unwrap())) {
-                emitter.is_valid = false;
+            {
+                let mut emref = emitter_rc.write().unwrap();
+                // for non-looping sounds: if the voice stops playing, or the sound's voice has been stolen, just stop emitter and remove from list
+                if !emref.looping && (!voice.is_some() || !get_voice_state(voice.unwrap().try_into().unwrap())) {
+                    emref.is_valid = false;
+                }
             }
         }
 
         // remove any emitters which are no longer valid
         self.emitters.retain(|x| {
-            x.is_valid
+            x.read().unwrap().is_valid
         });
     }
 
-    /// Play a fire and forget sound effect
-    pub fn play_one_shot(&mut self, priority: u8, sample: &Arc<AudioSample>, reverb: bool, volume: f32, pitch: f32, pan: f32) {
-        _ = self.play(priority, sample, false, reverb, volume, pitch, pan);
-    }
-
-    /// Play a fire and forget sound effect in 3D
-    pub fn play_one_shot_3d(&mut self, priority: u8, sample: &Arc<AudioSample>, reverb: bool, volume: f32, pitch: f32,
-        position: Vector3, atten_type: AttenuationType, atten_min_dist: f32, atten_max_dist: f32, atten_rolloff: f32) {
-        _ = self.play_3d(priority, sample, false, reverb, volume, pitch, position, atten_type, atten_min_dist, atten_max_dist, atten_rolloff);
-    }
-
     /// Start playing a sound effect and return a handle to it
-    pub fn play(&mut self, priority: u8, sample: &Arc<AudioSample>, looping: bool, reverb: bool, volume: f32, pitch: f32, pan: f32) -> Weak<SoundEmitter> {
+    pub fn play(&mut self, priority: u8, sample: &Arc<AudioSample>, looping: bool, reverb: bool, volume: f32, pitch: f32, pan: f32) -> Weak<RwLock<SoundEmitter>> {
         let mut emitter = SoundEmitter {
             is_valid: true,
             priority: priority,
@@ -288,17 +282,17 @@ impl SoundDriver {
             voice: None
         };
         SoundDriver::assign_hw_voice(&self.listener_position, &self.listener_orientation, &mut self.voices, &mut self.search_offset, self.max_voices, &mut emitter);
-
-        let rc = Arc::new(emitter);
-        let em_ref = Arc::downgrade(&rc);
+        
+        let rc = Arc::new(RwLock::new(emitter));
+        let wr = Arc::downgrade(&rc);
         self.emitters.push(rc);
 
-        return em_ref;
+        return wr;
     }
 
     /// Start playing a 3D sound effect and return a handle to it
     pub fn play_3d(&mut self, priority: u8, sample: &Arc<AudioSample>, looping: bool, reverb: bool, volume: f32, pitch: f32,
-        position: Vector3, atten_type: AttenuationType, atten_min_dist: f32, atten_max_dist: f32, atten_rolloff: f32) -> Weak<SoundEmitter> {
+        position: Vector3, atten_type: AttenuationType, atten_min_dist: f32, atten_max_dist: f32, atten_rolloff: f32) -> Weak<RwLock<SoundEmitter>> {
         let mut emitter = SoundEmitter {
             is_valid: true,
             priority: priority,
@@ -318,23 +312,23 @@ impl SoundDriver {
             voice: None
         };
         SoundDriver::assign_hw_voice(&self.listener_position, &self.listener_orientation, &mut self.voices, &mut self.search_offset, self.max_voices, &mut emitter);
-
-        let rc = Arc::new(emitter);
-        let em_ref = Arc::downgrade(&rc);
+        
+        let rc = Arc::new(RwLock::new(emitter));
+        let wr = Arc::downgrade(&rc);
         self.emitters.push(rc);
 
-        return em_ref;
+        return wr;
     }
 
     /// Stop the playing emitter
-    pub fn stop(&mut self, emitter_ref: Weak<SoundEmitter>) {
+    pub fn stop(&mut self, emitter_ref: Weak<RefCell<SoundEmitter>>) {
         let rc = emitter_ref.upgrade();
         if !rc.is_some() {
             return;
         }
 
-        let mut em = rc.unwrap();
-        let emitter = Arc::get_mut(&mut em).unwrap();
+        let em = rc.unwrap();
+        let mut emitter = em.borrow_mut();
 
         if !emitter.is_valid { return; }
 
