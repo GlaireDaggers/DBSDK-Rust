@@ -261,6 +261,12 @@ impl SoundDriver {
         });
     }
 
+    /// Set the listener position & orientation
+    pub fn set_listener(&mut self, position: Vector3, orientation: Quaternion) {
+        self.listener_position = position;
+        self.listener_orientation = orientation;
+    }
+
     /// Start playing a sound effect and return a handle to it
     pub fn play(&mut self, priority: u8, sample: &Arc<AudioSample>, looping: bool, reverb: bool, volume: f32, pitch: f32, pan: f32) -> Weak<RwLock<SoundEmitter>> {
         let mut emitter = SoundEmitter {
