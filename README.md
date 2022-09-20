@@ -7,3 +7,6 @@ Add the following line to the dependencies section of your Cargo.toml:
 ```
 dbsdk-rs = "0.1.0"
 ```
+
+## Documentation
+View docs at https://docs.rs/dbsdk-rs/0.1.0/dbsdk_rs/
