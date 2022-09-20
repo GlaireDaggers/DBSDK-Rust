@@ -49,9 +49,9 @@ pub struct FileStream {
 impl FileStream {
     /// Open a file from the filesystem (paths are given in the form of "/\[device\]/path/to/file") <br/>
     /// Valid devices are "cd", "ma", and "mb"
-    pub fn open(path: &String, mode: FileMode) -> Result<FileStream, IOError> {
+    pub fn open(path: &str, mode: FileMode) -> Result<FileStream, IOError> {
         unsafe {
-            let path_cstr = CString::new(path.as_str()).expect("Failed creating C string");
+            let path_cstr = CString::new(path).expect("Failed creating C string");
             let handle = fs_open(path_cstr.as_ptr(), mode);
 
             if handle == 0 {
@@ -81,9 +81,9 @@ impl FileStream {
     }
 
     /// Allocate a new file on the memory card device given in the path string of the given size in 512-byte blocks for writing
-    pub fn allocate_memory_card(path: &String, icondata: &[u8;128], iconpalette: &[u16;16], blocks: i32) -> Result<FileStream, IOError> {
+    pub fn allocate_memory_card(path: &str, icondata: &[u8;128], iconpalette: &[u16;16], blocks: i32) -> Result<FileStream, IOError> {
         unsafe {
-            let path_cstr = CString::new(path.as_str()).expect("Failed creating C string");
+            let path_cstr = CString::new(path).expect("Failed creating C string");
             let handle = fs_allocMemoryCard(path_cstr.as_ptr(), icondata.as_ptr(), iconpalette.as_ptr(), blocks);
 
             if handle == 0 {
