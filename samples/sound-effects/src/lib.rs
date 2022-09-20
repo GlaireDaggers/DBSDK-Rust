@@ -4,7 +4,7 @@ extern crate dbsdk_rs;
 
 use std::sync::{RwLock, Arc, Weak};
 
-use dbsdk_rs::{vdp, io, math::{Vector4, Matrix4x4}, field_offset::offset_of, db, sounddriver::{SoundDriver, self, SoundEmitter}, audio::AudioSample};
+use dbsdk_rs::{vdp, io, math::{Vector4, Matrix4x4}, field_offset::offset_of, db, sounddriver::{SoundDriver, self, SoundEmitter}, audio::AudioSample, gamepad::{Gamepad, GamepadSlot, GamepadState, GamepadButton}};
 
 lazy_static! {
     static ref SOUND_DRIVER: RwLock<SoundDriver> = RwLock::new(SoundDriver::new(32));
@@ -24,11 +24,22 @@ lazy_static! {
         let mut sound_driver = SOUND_DRIVER.write().unwrap();
         sound_driver.play(128, &WATER_SOUND, true, false, 1.0, 1.0, 0.5)
     };
+    static ref GAMEPAD: Gamepad = Gamepad::new(GamepadSlot::SlotA);
+    static ref GAMEPAD_PREV_STATE: RwLock<GamepadState> = RwLock::new(GAMEPAD.read_state());
 }
 
 fn tick() {
     let mut sound_driver = SOUND_DRIVER.write().unwrap();
     sound_driver.update();
+
+    let mut prev_gp_state = GAMEPAD_PREV_STATE.write().unwrap();
+    let cur_gp_state = GAMEPAD.read_state();
+
+    if cur_gp_state.button_mask.contains(GamepadButton::A) && !prev_gp_state.button_mask.contains(GamepadButton::A) {
+        sound_driver.play(128, &EXPLOSION_SOUND, false, false, 1.0, 1.0, 0.0);
+    }
+
+    *prev_gp_state = cur_gp_state;
 
     vdp::clear_color(vdp::Color32::new(128, 128, 255, 255));
     vdp::clear_depth(1.0);
