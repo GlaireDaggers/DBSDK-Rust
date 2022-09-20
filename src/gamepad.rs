@@ -56,7 +56,7 @@ pub struct Gamepad {
 
 impl Gamepad {
     /// Construct a new Gamepad for the given slot
-    pub fn new(slot: GamepadSlot) -> Gamepad {
+    pub const fn new(slot: GamepadSlot) -> Gamepad {
         return Gamepad { slot: slot };
     }
 

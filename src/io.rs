@@ -1,4 +1,4 @@
-use std::{ffi::{CString, CStr}, convert::TryInto, mem::{transmute, size_of}};
+use std::{ffi::{CString, CStr}, convert::TryInto, mem::size_of};
 
 use crate::{db_internal::{fs_close, fs_open, fs_read, fs_write, fs_seek, fs_tell, fs_eof, fs_deviceExists, fs_deviceEject, fs_fileExists, fs_closeDir, fs_openDir, fs_readDir, clock_timestampToDatetime, fs_rewindDir, fs_allocMemoryCard}, clock::DateTime};
 
@@ -130,7 +130,7 @@ impl FileStream {
     /// Try to read a number of bytes from the stream, returning the actual number of bytes read
     pub fn read(&self, buffer: &mut[u8]) -> Result<usize, IOError> {
         unsafe {
-            let result = fs_read(self.handle, transmute(buffer.as_mut_ptr()), buffer.len().try_into().unwrap());
+            let result = fs_read(self.handle, buffer.as_mut_ptr().cast(), buffer.len().try_into().unwrap());
 
             if result == -1 {
                 match crate::db_internal::ERRNO {
@@ -155,7 +155,7 @@ impl FileStream {
             return Err(IOError::ReachedEndOfFile);
         }
         unsafe {
-            let data = *(transmute::<*const u8, *const T>(buf.as_ptr()));
+            let data = buf.as_ptr().cast::<T>().read_unaligned();
             return Ok(data);
         }
     }
@@ -163,7 +163,7 @@ impl FileStream {
     /// Try to write a buffer of bytes to the stream, returning the actual number of bytes written
     pub fn write(&self, buffer: &[u8]) -> Result<i32, IOError> {
         unsafe {
-            let result = fs_write(self.handle, transmute(buffer.as_ptr()), buffer.len().try_into().unwrap());
+            let result = fs_write(self.handle, buffer.as_ptr().cast(), buffer.len().try_into().unwrap());
 
             if result == -1 {
                 match crate::db_internal::ERRNO {
@@ -238,9 +238,9 @@ pub struct DirectoryInfo {
 
 impl DirectoryInfo {
     /// Open the given directory
-    pub fn open(path: &String) -> Result<DirectoryInfo, IOError> {
+    pub fn open(path: &str) -> Result<DirectoryInfo, IOError> {
         unsafe {
-            let path_cstr = CString::new(path.as_str()).expect("Failed creating C string");
+            let path_cstr = CString::new(path).expect("Failed creating C string");
             let result = fs_openDir(path_cstr.as_ptr());
 
             if result == -1 {
@@ -296,7 +296,7 @@ impl DirectoryInfo {
             clock_timestampToDatetime((*dir_info_ptr).modified, &mut modified_dt);
 
             return Some(DirectoryEntry {
-                name: String::from(name_str),
+                name: name_str.to_string(),
                 is_directory: (*dir_info_ptr).is_directory != 0,
                 size: (*dir_info_ptr).size,
                 created: created_dt,
@@ -321,25 +321,25 @@ impl Drop for DirectoryInfo {
 
 /// Check if the given device exists <br/>
 /// Valid devices are "cd", "ma", and "mb"
-pub fn device_exists(device: &String) -> bool {
+pub fn device_exists(device: &str) -> bool {
     unsafe {
-        let path_cstr = CString::new(device.as_str()).expect("Failed creating C string");
+        let path_cstr = CString::new(device).expect("Failed creating C string");
         return fs_deviceExists(path_cstr.as_ptr());
     }
 }
 
 /// Eject the given device, if it supports being ejected
-pub fn device_eject(device: &String) {
+pub fn device_eject(device: &str) {
     unsafe {
-        let path_cstr = CString::new(device.as_str()).expect("Failed creating C string");
+        let path_cstr = CString::new(device).expect("Failed creating C string");
         fs_deviceEject(path_cstr.as_ptr());
     }
 }
 
 /// Check if the given file exists
-pub fn file_exists(path: &String) -> bool {
+pub fn file_exists(path: &str) -> bool {
     unsafe {
-        let path_cstr = CString::new(path.as_str()).expect("Failed creating C string");
+        let path_cstr = CString::new(path).expect("Failed creating C string");
         return fs_fileExists(path_cstr.as_ptr());
     }
 }

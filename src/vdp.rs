@@ -1,6 +1,5 @@
 use std::convert::TryInto;
 use std::fmt::Debug;
-use std::mem::transmute;
 
 use crate::db_internal::{vdp_clearColor, vdp_setVsyncHandler, vdp_clearDepth, vdp_depthWrite, vdp_depthFunc, vdp_blendEquation, vdp_blendFunc, vdp_setWinding, vdp_setCulling, vdp_drawGeometry, vdp_allocTexture, vdp_releaseTexture, vdp_getUsage, vdp_setTextureData, vdp_copyFbToTexture, vdp_setSampleParams, vdp_bindTexture, vdp_viewport, vdp_submitDepthQuery, vdp_getDepthQueryResult};
 use crate::math::Vector4;
@@ -17,7 +16,7 @@ pub struct Color32 {
 }
 
 impl Color32 {
-    pub fn new(r: u8, g: u8, b: u8, a: u8) -> Color32 {
+    pub const fn new(r: u8, g: u8, b: u8, a: u8) -> Color32 {
         return Color32 { r: r, g: g, b: b, a: a };
     }
 }
@@ -32,7 +31,7 @@ pub struct Vertex {
 }
 
 impl Vertex {
-    pub fn new(position: Vector4, color: Vector4, ocolor: Vector4, texcoord: Vector4) -> Vertex {
+    pub const fn new(position: Vector4, color: Vector4, ocolor: Vector4, texcoord: Vector4) -> Vertex {
         return Vertex { position: position, color: color, ocolor: ocolor, texcoord: texcoord };
     }
 }
@@ -47,7 +46,7 @@ pub struct Rectangle {
 }
 
 impl Rectangle {
-    pub fn new(x: i32, y: i32, width: i32, height: i32) -> Rectangle {
+    pub const fn new(x: i32, y: i32, width: i32, height: i32) -> Rectangle {
         return Rectangle { x: x, y: y, width: width, height: height };
     }
 }
@@ -92,7 +91,7 @@ impl Texture {
     /// Upload texture data for the given mip level of this texture
     pub fn set_texture_data<T>(&self, level: i32, data: &[T]) {
         unsafe {
-            vdp_setTextureData(self.handle, level, transmute(data.as_ptr()), data.len().try_into().unwrap());
+            vdp_setTextureData(self.handle, level, data.as_ptr().cast(), data.len().try_into().unwrap());
         }
     }
 

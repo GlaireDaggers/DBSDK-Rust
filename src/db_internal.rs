@@ -1,4 +1,5 @@
-use std::{alloc::Layout, convert::TryInto, os::raw::c_char, ffi::c_void};
+use std::mem::size_of;
+use std::{alloc::Layout, os::raw::c_char, ffi::c_void};
 
 use crate::clock::DateTime;
 use crate::gamepad::GamepadSlot;
@@ -82,46 +83,38 @@ extern {
     // pub fn clock_datetimeToTimestamp(datetime: *const NativeDateTime) -> u64;
 }
 
+const SIZE_SIZE: usize = size_of::<i32>();
+
 #[used]
 pub static mut ERRNO: i32 = 0;
 
 #[no_mangle]
 pub fn __errno_location() -> *mut i32 {
-    unsafe {
-        let ptr: *mut i32 = &mut ERRNO;
-        return ptr;
-    }
+    unsafe { &mut ERRNO }
 }
 
 #[no_mangle]
-pub fn malloc(size: i32) -> i32 {
-    unsafe {
-        // basically we just allocate a block of memory with a 4-byte preamble that stores the length
-        // that way, we can pass the raw pointer to C, and then when we get the pointer back we do some arithmetic to get at the original preamble
-        // and then we can reconstruct the Layout that was passed to alloc
+pub fn malloc(size: i32) -> *mut c_void {
+    // basically we just allocate a block of memory with a 4-byte preamble that stores the length
+    // that way, we can pass the raw pointer to C, and then when we get the pointer back we do some arithmetic to get at the original preamble
+    // and then we can reconstruct the Layout that was passed to alloc
 
-        let layout = Layout::array::<u8>((size + 4).try_into().unwrap()).unwrap();
-        let mem = std::alloc::alloc(layout);
-
-        let size_ptr: *mut i32 = std::mem::transmute(mem);
-        let data_ptr: usize = std::mem::transmute(mem);
-        *size_ptr = size;
-  
-        return (data_ptr + 4).try_into().unwrap();
+    let actual_size = SIZE_SIZE + usize::try_from(size).unwrap();
+    let layout = Layout::array::<u8>(actual_size).unwrap();
+    let mem = unsafe { std::alloc::alloc(layout) };
+    if !mem.is_null() {
+        unsafe { mem.cast::<i32>().write_unaligned(size) };
     }
+    unsafe { mem.add(SIZE_SIZE) }.cast()
 }
 
 #[no_mangle]
-pub fn free(ptr: i32) {
-    unsafe {
-        // back up by 4 bytes to get at the preamble, which contains the allocated size
-        
-        let realptr: usize = (ptr - 4).try_into().unwrap();
-        let size_ptr: *mut i32 = std::mem::transmute(realptr);
-        let mem: *mut u8 = std::mem::transmute(size_ptr);
-        let size = *size_ptr;
+pub fn free(ptr: *mut c_void) {
+    // back up by 4 bytes to get at the preamble, which contains the allocated size
 
-        let layout = Layout::array::<u8>((size + 4).try_into().unwrap()).unwrap();
-        std::alloc::dealloc(mem, layout);
-    }
+    let ptr = unsafe { ptr.sub(4) }.cast::<u8>();
+    let size = unsafe { ptr.cast::<i32>().read_unaligned() };
+    let actual_size = SIZE_SIZE + usize::try_from(size).unwrap();
+    let layout = Layout::array::<u8>(actual_size).unwrap();
+    unsafe { std::alloc::dealloc(ptr, layout) };
 }

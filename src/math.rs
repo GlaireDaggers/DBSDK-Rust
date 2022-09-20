@@ -12,19 +12,19 @@ pub struct Vector2 {
 }
 
 impl Vector2 {
-    pub fn new(x: f32, y: f32) -> Vector2 {
+    pub const fn new(x: f32, y: f32) -> Vector2 {
         return Vector2 { x: x, y: y };
     }
 
-    pub fn zero() -> Vector2 {
+    pub const fn zero() -> Vector2 {
         return Vector2 { x: 0.0, y: 0.0 };
     }
 
-    pub fn unit_x() -> Vector2 {
+    pub const fn unit_x() -> Vector2 {
         return Vector2 { x: 1.0, y: 0.0 };
     }
     
-    pub fn unit_y() -> Vector2 {
+    pub const fn unit_y() -> Vector2 {
         return Vector2 { x: 0.0, y: 1.0 };
     }
 
@@ -138,23 +138,23 @@ pub struct Vector3 {
 }
 
 impl Vector3 {
-    pub fn new(x: f32, y: f32, z: f32) -> Vector3 {
+    pub const fn new(x: f32, y: f32, z: f32) -> Vector3 {
         return Vector3 { x: x, y: y, z: z };
     }
 
-    pub fn zero() -> Vector3 {
+    pub const fn zero() -> Vector3 {
         return Vector3 { x: 0.0, y: 0.0, z: 0.0 };
     }
 
-    pub fn unit_x() -> Vector3 {
+    pub const fn unit_x() -> Vector3 {
         return Vector3 { x: 1.0, y: 0.0, z: 0.0 };
     }
 
-    pub fn unit_y() -> Vector3 {
+    pub const fn unit_y() -> Vector3 {
         return Vector3 { x: 0.0, y: 1.0, z: 0.0 };
     }
 
-    pub fn unit_z() -> Vector3 {
+    pub const fn unit_z() -> Vector3 {
         return Vector3 { x: 0.0, y: 0.0, z: 1.0 };
     }
 
@@ -281,27 +281,27 @@ pub struct Vector4 {
 }
 
 impl Vector4 {
-    pub fn new(x: f32, y: f32, z: f32, w: f32) -> Vector4 {
+    pub const fn new(x: f32, y: f32, z: f32, w: f32) -> Vector4 {
         return Vector4 { x: x, y: y, z: z, w: w };
     }
 
-    pub fn zero() -> Vector4 {
+    pub const fn zero() -> Vector4 {
         return Vector4 { x: 0.0, y: 0.0, z: 0.0, w: 0.0 };
     }
 
-    pub fn unit_x() -> Vector4 {
+    pub const fn unit_x() -> Vector4 {
         return Vector4 { x: 1.0, y: 0.0, z: 0.0, w: 0.0 };
     }
 
-    pub fn unit_y() -> Vector4 {
+    pub const fn unit_y() -> Vector4 {
         return Vector4 { x: 0.0, y: 1.0, z: 0.0, w: 0.0 };
     }
 
-    pub fn unit_z() -> Vector4 {
+    pub const fn unit_z() -> Vector4 {
         return Vector4 { x: 0.0, y: 0.0, z: 1.0, w: 0.0 };
     }
 
-    pub fn unit_w() -> Vector4 {
+    pub const fn unit_w() -> Vector4 {
         return Vector4 { x: 0.0, y: 0.0, z: 0.0, w: 1.0 };
     }
 
@@ -422,11 +422,11 @@ pub struct Quaternion {
 }
 
 impl Quaternion {
-    pub fn new(x: f32, y: f32, z: f32, w: f32) -> Quaternion {
+    pub const fn new(x: f32, y: f32, z: f32, w: f32) -> Quaternion {
         return Quaternion { x: x, y: y, z: z, w: w };
     }
 
-    pub fn identity() -> Quaternion {
+    pub const fn identity() -> Quaternion {
         return Quaternion { x: 0.0, y: 0.0, z: 0.0, w: 1.0 };
     }
 
@@ -501,7 +501,7 @@ pub struct Matrix4x4 {
 }
 
 impl Matrix4x4 {
-    pub fn identity() -> Matrix4x4 {
+    pub const fn identity() -> Matrix4x4 {
         return Matrix4x4 { m: [
             [1.0, 0.0, 0.0, 0.0],
             [0.0, 1.0, 0.0, 0.0],

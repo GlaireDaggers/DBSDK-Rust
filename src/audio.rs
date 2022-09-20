@@ -1,4 +1,4 @@
-use std::{convert::TryInto, mem::transmute};
+use std::{convert::TryInto};
 
 use crate::db_internal::{audio_alloc, audio_allocCompressed, audio_free, audio_getUsage, audio_queueSetParam_i, audio_queueSetParam_f, audio_queueStartVoice, audio_queueStopVoice, audio_getVoiceState, audio_getTime, audio_setReverbParams, audio_initSynth, audio_playMidi, audio_setMidiReverb, audio_setMidiVolume};
 
@@ -33,7 +33,7 @@ pub enum AudioVoiceParam {
 impl AudioSample {
     /// Create a new signed 8-bit PCM audio sample
     pub fn create_s8(pcm_data: &[i8], samplerate: i32) -> Result<AudioSample,()> {
-        let handle = unsafe { audio_alloc(transmute(pcm_data.as_ptr()), pcm_data.len().try_into().unwrap(), 0) };
+        let handle = unsafe { audio_alloc(pcm_data.as_ptr().cast(), pcm_data.len().try_into().unwrap(), 0) };
         if handle == -1 {
             return Err(());
         }
@@ -46,7 +46,7 @@ impl AudioSample {
 
     /// Create a new signed 16-bit PCM audio sample
     pub fn create_s16(pcm_data: &[i16], samplerate: i32) -> Result<AudioSample,()> {
-        let handle = unsafe { audio_alloc(transmute(pcm_data.as_ptr()), pcm_data.len().try_into().unwrap(), 1) };
+        let handle = unsafe { audio_alloc(pcm_data.as_ptr().cast(), pcm_data.len().try_into().unwrap(), 1) };
         if handle == -1 {
             return Err(());
         }
@@ -59,7 +59,7 @@ impl AudioSample {
 
     /// Create a new IMA ADPCM encoded audio sample
     pub fn create_adpcm(adpcm_data: &[u8], chunk_size: i32, samplerate: i32) -> Result<AudioSample,()> {
-        let handle = unsafe { audio_allocCompressed(transmute(adpcm_data.as_ptr()), adpcm_data.len().try_into().unwrap(), chunk_size) };
+        let handle = unsafe { audio_allocCompressed(adpcm_data.as_ptr().cast(), adpcm_data.len().try_into().unwrap(), chunk_size) };
         if handle == -1 {
             return Err(());
         }
