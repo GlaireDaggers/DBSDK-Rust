@@ -1,6 +1,8 @@
-use std::{convert::TryInto, mem::{size_of, transmute}, cell::RefCell, sync::{Weak, RwLock}, sync::Arc};
+use std::{convert::TryInto, mem::{size_of, transmute}, cell::RefCell, sync::{Weak, RwLock}, sync::Arc, io::{Read, Seek}};
 
-use crate::{audio::{VOICE_COUNT, AudioSample, get_voice_state, queue_stop_voice, get_time, queue_start_voice, queue_set_voice_param_f, AudioVoiceParam, queue_set_voice_param_i}, math::{Vector3, Quaternion}, io::{FileStream, SeekOrigin}};
+use byteorder::{LittleEndian, ReadBytesExt};
+
+use crate::{audio::{VOICE_COUNT, AudioSample, get_voice_state, queue_stop_voice, get_time, queue_start_voice, queue_set_voice_param_f, AudioVoiceParam, queue_set_voice_param_i}, math::{Vector3, Quaternion}, io::FileStream};
 
 #[derive(Clone, Copy)]
 pub enum AttenuationType {
@@ -38,32 +40,76 @@ pub struct SoundEmitter {
     voice: Option<i32>,
 }
 
-#[repr(C)]
-#[derive(Clone, Copy)]
 struct WavHeader {
     riff: [u8;4],
-    overall_size: u32,
+    _overall_size: u32,
     wave: [u8;4],
 }
 
-#[repr(C)]
-#[derive(Clone, Copy)]
+impl WavHeader {
+    pub fn read(fs: &mut FileStream) -> WavHeader {
+        let mut riff: [u8;4] = [0;4];
+        fs.read_exact(&mut riff).expect("Failed reading header");
+        let overall_size = fs.read_u32::<LittleEndian>().expect("Failed reading header");
+        let mut wave: [u8;4] = [0;4];
+        fs.read_exact(&mut wave).expect("Failed reading header");
+
+        return WavHeader { riff: riff, _overall_size: overall_size, wave: wave };
+    }
+}
+
 struct WavHeaderFormat {
     fmt_chunk_marker: [u8;4],
     length_of_fmt: u32,
     format_type: u16,
     channels: u16,
     samplerate: u32,
-    byterate: u32,
+    _byterate: u32,
     block_align: u16,
     bits_per_sample: u16,
 }
 
-#[repr(C)]
-#[derive(Clone, Copy)]
+impl WavHeaderFormat {
+    pub fn read(fs: &mut FileStream) -> WavHeaderFormat {
+        let mut fmt_chunk_marker: [u8;4] = [0;4];
+        fs.read_exact(&mut fmt_chunk_marker).expect("Failed reading header");
+        let length_of_fmt = fs.read_u32::<LittleEndian>().expect("Failed reading header");
+        let format_type = fs.read_u16::<LittleEndian>().expect("Failed reading header");
+        let channels = fs.read_u16::<LittleEndian>().expect("Failed reading header");
+        let samplerate = fs.read_u32::<LittleEndian>().expect("Failed reading header");
+        let byterate = fs.read_u32::<LittleEndian>().expect("Failed reading header");
+        let block_align = fs.read_u16::<LittleEndian>().expect("Failed reading header");
+        let bits_per_sample = fs.read_u16::<LittleEndian>().expect("Failed reading header");
+
+        return WavHeaderFormat {
+            fmt_chunk_marker: fmt_chunk_marker,
+            length_of_fmt: length_of_fmt,
+            format_type: format_type,
+            channels: channels,
+            samplerate: samplerate,
+            _byterate: byterate,
+            block_align: block_align,
+            bits_per_sample: bits_per_sample,
+        };
+    }
+}
+
 struct WavChunkHeader {
     id: [u8;4],
     chunk_size: u32,
+}
+
+impl WavChunkHeader {
+    pub fn read(fs: &mut FileStream) -> WavChunkHeader {
+        let mut id: [u8;4] = [0;4];
+        fs.read_exact(&mut id).expect("Failed reading header");
+        let chunk_size = fs.read_u32::<LittleEndian>().expect("Failed reading header");
+
+        return WavChunkHeader {
+            id: id,
+            chunk_size: chunk_size
+        };
+    }
 }
 
 pub struct SoundDriver {
@@ -353,10 +399,7 @@ impl SoundDriver {
 
 /// Load a wav file, returning an audio sample handle (supported encodings are unsigned 8-bit, signed 16-bit, and IMA ADPCM)
 pub fn load_wav(file: &mut FileStream) -> Result<AudioSample,()> {
-    let header = match file.read_element::<WavHeader>() {
-        Ok(v) => { v },
-        Err(_) => { return Err(()); }
-    };
+    let header = WavHeader::read(file);
 
     // check riff string
     let riff = match std::str::from_utf8(&header.riff) {
@@ -368,10 +411,17 @@ pub fn load_wav(file: &mut FileStream) -> Result<AudioSample,()> {
         return Err(());
     }
 
-    let fmt_header = match file.read_element::<WavHeaderFormat>() {
+    // check wav string
+    let wave = match std::str::from_utf8(&header.wave) {
         Ok(v) => { v },
         Err(_) => { return Err(()); }
     };
+
+    if wave != "WAVE" {
+        return Err(());
+    }
+
+    let fmt_header = WavHeaderFormat::read(file);
 
     // check fmt string
 
@@ -384,11 +434,15 @@ pub fn load_wav(file: &mut FileStream) -> Result<AudioSample,()> {
         return Err(());
     }
 
+    if fmt_header.channels != 1 {
+        return Err(());
+    }
+
     // skip over header data
     let fmt_header_size: usize = fmt_header.length_of_fmt.try_into().unwrap();
     let header_size: usize = size_of::<WavHeader>() + fmt_header_size + 8;
 
-    match file.seek(header_size.try_into().unwrap(), SeekOrigin::Begin) {
+    match file.seek(std::io::SeekFrom::Start(header_size.try_into().unwrap())) {
         Ok(_) => {  },
         Err(_) => { return Err(()); }
     }
@@ -397,10 +451,7 @@ pub fn load_wav(file: &mut FileStream) -> Result<AudioSample,()> {
     let mut chunk_header: WavChunkHeader = WavChunkHeader { id: [0;4], chunk_size: 0 };
 
     while !file.end_of_file() {
-        chunk_header = match file.read_element::<WavChunkHeader>() {
-            Ok(v) => { v },
-            Err(_) => { return Err(()); }
-        };
+        chunk_header = WavChunkHeader::read(file);
 
         let chunk_id = match std::str::from_utf8(&chunk_header.id) {
             Ok(v) => { v },
@@ -412,7 +463,9 @@ pub fn load_wav(file: &mut FileStream) -> Result<AudioSample,()> {
             break;
         } else {
             // skip chunk data
-            _ = file.seek(chunk_header.chunk_size.try_into().unwrap(), SeekOrigin::Begin);
+            if file.seek(std::io::SeekFrom::Current(chunk_header.chunk_size.try_into().unwrap())).is_err() {
+                return Err(());
+            }
         }
     }
 

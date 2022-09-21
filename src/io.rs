@@ -1,7 +1,8 @@
-use std::{ffi::{CString, CStr}, convert::TryInto, mem::size_of};
+use std::{ffi::{CString, CStr}, convert::TryInto};
 
 use crate::{db_internal::{fs_close, fs_open, fs_read, fs_write, fs_seek, fs_tell, fs_eof, fs_deviceExists, fs_deviceEject, fs_fileExists, fs_closeDir, fs_openDir, fs_readDir, clock_timestampToDatetime, fs_rewindDir, fs_allocMemoryCard}, clock::DateTime};
 
+const ESUCCESS: i32 = 0;
 const EACCESS: i32 = 2;
 const EEXIST: i32 = 20;
 const EFBIG: i32 = 22;
@@ -44,6 +45,100 @@ pub enum IOError {
 
 pub struct FileStream {
     handle: i32,
+}
+
+impl std::io::Read for FileStream {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        unsafe {
+            let result = fs_read(self.handle, buf.as_mut_ptr().cast(), buf.len().try_into().unwrap());
+
+            if result == -1 {
+                match crate::db_internal::ERRNO {
+                    EACCESS => {
+                        return Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied));
+                    }
+                    _ => {
+                        panic!("Unhandled errno");
+                    }
+                }
+            }
+
+            return Ok(result.try_into().unwrap());
+        }
+    }
+}
+
+impl std::io::Write for FileStream {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        unsafe {
+            let result = fs_write(self.handle, buf.as_ptr().cast(), buf.len().try_into().unwrap());
+
+            if result == -1 {
+                match crate::db_internal::ERRNO {
+                    EACCESS => {
+                        return Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied));
+                    }
+                    EFBIG => {
+                        return Err(std::io::Error::new(std::io::ErrorKind::Other, "File size limit reached"));
+                    }
+                    _ => {
+                        panic!("Unhandled errno");
+                    }
+                }
+            }
+
+            return Ok(result.try_into().unwrap());
+        }
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        unsafe {
+            crate::db_internal::fs_flush(self.handle);
+
+            match crate::db_internal::ERRNO {
+                ESUCCESS => {
+                    return Ok(());
+                },
+                EACCESS => {
+                    return Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied));
+                },
+                _ => {
+                    panic!("Unhandled errno");
+                }
+            }
+        }
+    }
+}
+
+impl std::io::Seek for FileStream {
+    fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
+        unsafe {
+            let result = match pos {
+                std::io::SeekFrom::Start(position) => {
+                    fs_seek(self.handle, position.try_into().unwrap(), SeekOrigin::Begin)
+                },
+                std::io::SeekFrom::Current(position) => {
+                    fs_seek(self.handle, position.try_into().unwrap(), SeekOrigin::Current)
+                },
+                std::io::SeekFrom::End(position) => {
+                    fs_seek(self.handle, position.try_into().unwrap(), SeekOrigin::End)
+                }
+            };
+
+            if result == -1 {
+                match crate::db_internal::ERRNO {
+                    ESPIPE => {
+                        return Err(std::io::Error::from(std::io::ErrorKind::BrokenPipe));
+                    }
+                    _ => {
+                        panic!("Unhandled errno");
+                    }
+                }
+            }
+
+            return Ok(result.try_into().unwrap());
+        }
+    }
 }
 
 impl FileStream {
@@ -106,100 +201,6 @@ impl FileStream {
             return Ok(FileStream {
                 handle: handle
             });
-        }
-    }
-
-    /// Read file until EOF into the given string buffer
-    pub fn read_to_string(&self, buffer: &mut String) -> Result<usize, IOError> {
-        let mut buf: [u8;32] = [0;32];
-
-        while !self.end_of_file() {
-            let result = self.read(&mut buf)?;
-            if result == 0 { break; }
-
-            let str = &buf[0..result];
-            match std::str::from_utf8(str) {
-                Ok(v) => { buffer.push_str(v) }
-                Err(_) => { break; }
-            }
-        }
-
-        return Ok(0);
-    }
-
-    /// Try to read a number of bytes from the stream, returning the actual number of bytes read
-    pub fn read(&self, buffer: &mut[u8]) -> Result<usize, IOError> {
-        unsafe {
-            let result = fs_read(self.handle, buffer.as_mut_ptr().cast(), buffer.len().try_into().unwrap());
-
-            if result == -1 {
-                match crate::db_internal::ERRNO {
-                    EACCESS => {
-                        return Err(IOError::NotSupported);
-                    }
-                    _ => {
-                        panic!("Unhandled errno");
-                    }
-                }
-            }
-
-            return Ok(result.try_into().unwrap());
-        }
-    }
-
-    /// Read an element from the stream, returning an error if there aren't enough bytes in the stream or some other error occurs
-    pub fn read_element<T: Copy>(&self) -> Result<T, IOError> {
-        let mut buf : Vec<u8> = vec![0;size_of::<T>()];
-        let result = TryInto::<usize>::try_into(self.read(buf.as_mut_slice())?).unwrap();
-        if result != buf.len() {
-            return Err(IOError::ReachedEndOfFile);
-        }
-        unsafe {
-            let data = buf.as_ptr().cast::<T>().read_unaligned();
-            return Ok(data);
-        }
-    }
-
-    /// Try to write a buffer of bytes to the stream, returning the actual number of bytes written
-    pub fn write(&self, buffer: &[u8]) -> Result<i32, IOError> {
-        unsafe {
-            let result = fs_write(self.handle, buffer.as_ptr().cast(), buffer.len().try_into().unwrap());
-
-            if result == -1 {
-                match crate::db_internal::ERRNO {
-                    EACCESS => {
-                        return Err(IOError::NotSupported);
-                    }
-                    EFBIG => {
-                        return Err(IOError::FileTooBig);
-                    }
-                    _ => {
-                        panic!("Unhandled errno");
-                    }
-                }
-            }
-
-            return Ok(result);
-        }
-    }
-
-    /// Try to seek the stream to the given position, returning the new position
-    pub fn seek(&self, position: i32, origin: SeekOrigin) -> Result<i32, IOError> {
-        unsafe {
-            let result = fs_seek(self.handle, position, origin);
-
-            if result == -1 {
-                match crate::db_internal::ERRNO {
-                    ESPIPE => {
-                        return Err(IOError::InvalidSeek);
-                    }
-                    _ => {
-                        panic!("Unhandled errno");
-                    }
-                }
-            }
-
-            return Ok(result);
         }
     }
 

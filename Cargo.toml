@@ -1,6 +1,6 @@
 [package]
 name = "dbsdk-rs"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 authors = [ "Hazel Stagner" ]
 description = "API for creating Rust games for the DreamBox fantasy console"
@@ -15,3 +15,4 @@ categories = ["wasm", "game-development", "api-bindings"]
 [dependencies]
 field-offset = "0.3.4"
 bitmask = "0.5.0"
+byteorder = "1.4.3"

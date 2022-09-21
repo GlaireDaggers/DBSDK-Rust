@@ -71,6 +71,7 @@ extern {
     pub fn fs_write(handle: i32, buffer: *const c_void, bufferLen: i32) -> i32;
     pub fn fs_seek(handle: i32, position: i32, whence: SeekOrigin) -> i32;
     pub fn fs_tell(handle: i32) -> i32;
+    pub fn fs_flush(handle: i32);
     pub fn fs_close(handle: i32);
     pub fn fs_eof(handle: i32) -> bool;
     pub fn fs_openDir(pathstr: *const c_char) -> i32;
