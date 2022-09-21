@@ -7,5 +7,5 @@ authors = [""]
 crate-type = ["cdylib"]
 
 [dependencies]
-dbsdk-rs = { git = "https://github.com/GlaireDaggers/DBSDK-Rust" }
+dbsdk-rs = "0.1.6"
 lazy_static = "1.4.0"

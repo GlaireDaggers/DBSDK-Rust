@@ -7,6 +7,6 @@ authors = [""]
 crate-type = ["cdylib"]
 
 [dependencies]
-dbsdk-rs = "0.1.4"
+dbsdk-rs = "0.1.6"
 qoi = "0.4.0"
 lazy_static = "1.4.0"

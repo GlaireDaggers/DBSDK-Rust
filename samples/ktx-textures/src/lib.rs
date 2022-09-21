@@ -21,15 +21,8 @@ lazy_static! {
     static ref BRICK_TEXTURE: RwLock<vdp::Texture> = {
         let brick_tex_file = io::FileStream::open("/cd/content/brickTex.ktx", io::FileMode::Read).expect("Failed to open brickTex.ktx");
 
-        // read in entirety of file
-        let size = brick_tex_file.seek(0, io::SeekOrigin::End).unwrap();
-        brick_tex_file.seek(0, io::SeekOrigin::Begin).unwrap();
-
-        let mut brick_tex_bytes: Vec<u8> = vec![0;size.try_into().unwrap()];
-        brick_tex_file.read(brick_tex_bytes.as_mut_slice()).unwrap();
-
         // decode KTX texture
-        let decoder = ktx::Decoder::new(brick_tex_bytes.as_slice()).expect("Failed decoding KTX image");
+        let decoder = ktx::Decoder::new(brick_tex_file).expect("Failed decoding KTX image");
 
         // find appropriate VDP format
         let tex_fmt = if decoder.gl_type() == GL_UNSIGNED_BYTE && decoder.gl_format() == GL_RGBA {

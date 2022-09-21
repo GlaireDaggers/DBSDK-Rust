@@ -15,11 +15,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5da9b3d9f6f585199287a473f4f8dfab6566cf827d15c00c219f53c645687ead"
 
 [[package]]
+name = "byteorder"
+version = "1.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
+
+[[package]]
 name = "dbsdk-rs"
-version = "0.1.4"
-source = "git+https://github.com/GlaireDaggers/DBSDK-Rust#31fe24b7519c2fbae4177b4d74375e6985fb6dc2"
+version = "0.1.5"
+source = "git+https://github.com/GlaireDaggers/DBSDK-Rust#b2e3efed2bcea495643ab9f3f62242247a852254"
 dependencies = [
  "bitmask",
+ "byteorder",
  "field-offset",
 ]
 

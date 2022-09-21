@@ -10,15 +10,10 @@ lazy_static! {
     static ref BRICK_TEXTURE: RwLock<vdp::Texture> = {
         let brick_tex_file = io::FileStream::open("/cd/content/brickTex.qoi", io::FileMode::Read).expect("Failed to open brickTex.qoi");
 
-        // read in entirety of file
-        let size = brick_tex_file.seek(0, io::SeekOrigin::End).unwrap();
-        brick_tex_file.seek(0, io::SeekOrigin::Begin).unwrap();
-
-        let mut brick_tex_bytes: Vec<u8> = vec![0;size.try_into().unwrap()];
-        brick_tex_file.read(brick_tex_bytes.as_mut_slice()).unwrap();
-
         // decode qoi image
-        let (header, decoded) = qoi::decode_to_vec(brick_tex_bytes).expect("Failed to decode brickTex.qoi");
+        let mut decoder = qoi::Decoder::from_stream(brick_tex_file).expect("Failed to decode brickTex.qoi").with_channels(qoi::Channels::Rgba);
+        let data = decoder.decode_to_vec().expect("Failed to decode brickTex.qoi");
+        let header = decoder.header();
 
         let tex = vdp::Texture::new(
             header.width.try_into().unwrap(),
@@ -26,27 +21,8 @@ lazy_static! {
             false,
             vdp::TextureFormat::RGBA8888).expect("Failed allocating texture");
 
-        match header.channels {
-            qoi::Channels::Rgba => {
-                // RGBA can just be copied as-is
-                tex.set_texture_data(0, &decoded.as_slice());
-            }
-            qoi::Channels::Rgb => {
-                // need to convert from RGB to RGBA
-                // qoi crate is *supposed* to support this on our behalf, but support for creating a custom Decoder seems broken right now.
-                // oh well!
-                let mut pix_data: Vec<vdp::Color32> = vec![vdp::Color32::new(0, 0, 0, 0);decoded.len() / 3];
-                for i in 0..pix_data.len() {
-                    pix_data[i] = vdp::Color32::new(
-                        decoded[i * 3],
-                        decoded[(i * 3) + 1],
-                        decoded[(i * 3) + 2],
-                        255);
-                }
-                tex.set_texture_data(0, &pix_data.as_slice());
-            }
-        }
-
+        // RGBA can just be copied as-is
+        tex.set_texture_data(0, &data.as_slice());
         RwLock::new(tex)
     };
 }
