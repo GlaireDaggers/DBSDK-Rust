@@ -46,7 +46,7 @@ impl AudioSample {
 
     /// Create a new signed 16-bit PCM audio sample
     pub fn create_s16(pcm_data: &[i16], samplerate: i32) -> Result<AudioSample,()> {
-        let handle = unsafe { audio_alloc(pcm_data.as_ptr().cast(), pcm_data.len().try_into().unwrap(), 1) };
+        let handle = unsafe { audio_alloc(pcm_data.as_ptr().cast(), (pcm_data.len() * 2).try_into().unwrap(), 1) };
         if handle == -1 {
             return Err(());
         }
