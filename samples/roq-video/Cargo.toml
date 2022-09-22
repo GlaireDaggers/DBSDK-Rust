@@ -1,0 +1,13 @@
+[package]
+name = "roq-video-rs"
+version = "1.0.0"
+authors = [""]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+byteorder = "1.4.3"
+dbsdk-rs = "0.1.7"
+lazy_static = "1.4.0"
+roq-dec = "0.1.0"
