@@ -52,14 +52,14 @@ impl std::io::Read for FileStream {
         unsafe {
             let result = fs_read(self.handle, buf.as_mut_ptr().cast(), buf.len().try_into().unwrap());
 
-            if result == -1 {
-                match crate::db_internal::ERRNO {
-                    EACCESS => {
-                        return Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied));
-                    }
-                    _ => {
-                        panic!("Unhandled errno");
-                    }
+            match crate::db_internal::ERRNO {
+                ESUCCESS => {
+                }
+                EACCESS => {
+                    return Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied));
+                }
+                _ => {
+                    panic!("Unhandled errno");
                 }
             }
 
@@ -73,17 +73,17 @@ impl std::io::Write for FileStream {
         unsafe {
             let result = fs_write(self.handle, buf.as_ptr().cast(), buf.len().try_into().unwrap());
 
-            if result == -1 {
-                match crate::db_internal::ERRNO {
-                    EACCESS => {
-                        return Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied));
-                    }
-                    EFBIG => {
-                        return Err(std::io::Error::new(std::io::ErrorKind::Other, "File size limit reached"));
-                    }
-                    _ => {
-                        panic!("Unhandled errno");
-                    }
+            match crate::db_internal::ERRNO {
+                ESUCCESS => {
+                }
+                EACCESS => {
+                    return Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied));
+                }
+                EFBIG => {
+                    return Err(std::io::Error::new(std::io::ErrorKind::Other, "File size limit reached"));
+                }
+                _ => {
+                    panic!("Unhandled errno");
                 }
             }
 
@@ -125,14 +125,14 @@ impl std::io::Seek for FileStream {
                 }
             };
 
-            if result == -1 {
-                match crate::db_internal::ERRNO {
-                    ESPIPE => {
-                        return Err(std::io::Error::from(std::io::ErrorKind::BrokenPipe));
-                    }
-                    _ => {
-                        panic!("Unhandled errno");
-                    }
+            match crate::db_internal::ERRNO {
+                ESUCCESS => {
+                }
+                ESPIPE => {
+                    return Err(std::io::Error::from(std::io::ErrorKind::BrokenPipe));
+                }
+                _ => {
+                    panic!("Unhandled errno");
                 }
             }
 
@@ -244,17 +244,17 @@ impl DirectoryInfo {
             let path_cstr = CString::new(path).expect("Failed creating C string");
             let result = fs_openDir(path_cstr.as_ptr());
 
-            if result == -1 {
-                match crate::db_internal::ERRNO {
-                    ENOENT => {
-                        return Err(IOError::DirectoryNotFound);
-                    }
-                    ENODEV => {
-                        return Err(IOError::NoSuchDevice);
-                    }
-                    _ => {
-                        panic!("Unhandled errno");
-                    }
+            match crate::db_internal::ERRNO {
+                ESUCCESS => {
+                }
+                ENOENT => {
+                    return Err(IOError::DirectoryNotFound);
+                }
+                ENODEV => {
+                    return Err(IOError::NoSuchDevice);
+                }
+                _ => {
+                    panic!("Unhandled errno");
                 }
             }
 
