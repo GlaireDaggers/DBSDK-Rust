@@ -5,3 +5,4 @@
 .wav filter=lfs diff=lfs merge=lfs -text
 .sf2 filter=lfs diff=lfs merge=lfs -text
 .midi filter=lfs diff=lfs merge=lfs -text
+dbm filter=lfs diff=lfs merge=lfs -text
