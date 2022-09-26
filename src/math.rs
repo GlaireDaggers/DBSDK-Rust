@@ -532,26 +532,35 @@ impl Matrix4x4 {
 
     /// Construct a rotation matrix
     pub fn rotation(rotation: Quaternion) -> Matrix4x4 {
-        let mut mat = Matrix4x4 { m: [
-            [1.0, 0.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0, 0.0],
-            [0.0, 0.0, 1.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0],
-        ] };
+        let num9 = rotation.x * rotation.x;
+        let num8 = rotation.y * rotation.y;
+        let num7 = rotation.z * rotation.z;
+        let num6 = rotation.x * rotation.y;
+        let num5 = rotation.z * rotation.w;
+        let num4 = rotation.z * rotation.x;
+        let num3 = rotation.y * rotation.w;
+        let num2 = rotation.y * rotation.z;
+        let num = rotation.x * rotation.w;
+        
+        let mut result = Matrix4x4::identity();
+        result.m[0][0] = 1.0 - (2.0 * (num8 + num7));
+        result.m[0][1] = 2.0 * (num6 + num5);
+        result.m[0][2] = 2.0 * (num4 - num3);
+        result.m[0][3] = 0.0;
+        result.m[1][0] = 2.0 * (num6 - num5);
+        result.m[1][1] = 1.0 - (2.0 * (num7 + num9));
+        result.m[1][2] = 2.0 * (num2 + num);
+        result.m[1][3] = 0.0;
+        result.m[2][0] = 2.0 * (num4 + num3);
+        result.m[2][1] = 2.0 * (num2 - num);
+        result.m[2][2] = 1.0 - (2.0 * (num8 + num9));
+        result.m[2][3] = 0.0;
+        result.m[3][0] = 0.0;
+        result.m[3][1] = 0.0;
+        result.m[3][2] = 0.0;
+        result.m[3][3] = 1.0;
 
-        mat.m[0][0] = 1.0 - 2.0 * rotation.y * rotation.y - 2.0 * rotation.z * rotation.z;
-        mat.m[0][1] = 2.0 * rotation.x * rotation.y - 2.0 * rotation.z * rotation.w;
-        mat.m[0][2] = 2.0 * rotation.x * rotation.z + 2.0 * rotation.y * rotation.w;
-
-        mat.m[1][0] = 2.0 * rotation.x * rotation.y + 2.0 * rotation.z * rotation.w;
-        mat.m[1][1] = 1.0 - 2.0 * rotation.x * rotation.x - 2.0 * rotation.z * rotation.z;
-        mat.m[1][2] = 2.0 * rotation.y * rotation.z - 2.0 * rotation.x * rotation.w;
-
-        mat.m[2][0] = 2.0 * rotation.x * rotation.z - 2.0 * rotation.y * rotation.w;
-        mat.m[2][1] = 2.0 * rotation.y * rotation.z + 2.0 * rotation.x * rotation.w;
-        mat.m[2][2] = 1.0 - 2.0 * rotation.x * rotation.x - 2.0 * rotation.y * rotation.y;
-
-        return mat;
+        return result;
     }
 
     /// Construct a new off-center orthographic projection matrix
