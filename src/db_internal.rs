@@ -31,10 +31,12 @@ extern {
     pub fn vdp_setWinding(winding: WindingOrder);
     pub fn vdp_setCulling(enabled: bool);
     pub fn vdp_drawGeometry(topology: Topology, first: i32, count: i32, vertexptr: *const Vertex);
+    pub fn vdp_drawGeometryPacked(topology: Topology, first: i32, count: i32, vertexptr: *const PackedVertex);
     pub fn vdp_allocTexture(mipmap: bool, format: TextureFormat, width: i32, height: i32) -> i32;
     pub fn vdp_releaseTexture(handle: i32);
     pub fn vdp_getUsage() -> i32;
     pub fn vdp_setTextureData(handle: i32, level: i32, data: *const c_void, dataLen: i32);
+    pub fn vdp_setTextureDataRegion(handle: i32, level: i32, dstRect: *const Rectangle, data: *const c_void, dataLen: i32);
     pub fn vdp_copyFbToTexture(srcRect: *const Rectangle, dstRect: *const Rectangle, dstTexture: i32);
     pub fn vdp_setSampleParams(filter: TextureFilter, wrapU: TextureWrap, wrapV: TextureWrap);
     pub fn vdp_bindTexture(handle: i32);
@@ -81,7 +83,7 @@ extern {
     pub fn fs_allocMemoryCard(filenamestr: *const c_char, icondata: *const u8, iconpalette: *const u16, blocks: i32) -> i32;
     pub fn clock_getTimestamp() -> u64;
     pub fn clock_timestampToDatetime(timestamp: u64, datetime: *mut DateTime);
-    // pub fn clock_datetimeToTimestamp(datetime: *const NativeDateTime) -> u64;
+    // pub fn clock_datetimeToTimestamp(datetime: *const DateTime) -> u64;
 }
 
 const SIZE_SIZE: usize = size_of::<i32>();

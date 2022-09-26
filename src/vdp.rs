@@ -1,8 +1,8 @@
 use std::convert::TryInto;
 use std::fmt::Debug;
 
-use crate::db_internal::{vdp_clearColor, vdp_setVsyncHandler, vdp_clearDepth, vdp_depthWrite, vdp_depthFunc, vdp_blendEquation, vdp_blendFunc, vdp_setWinding, vdp_setCulling, vdp_drawGeometry, vdp_allocTexture, vdp_releaseTexture, vdp_getUsage, vdp_setTextureData, vdp_copyFbToTexture, vdp_setSampleParams, vdp_bindTexture, vdp_viewport, vdp_submitDepthQuery, vdp_getDepthQueryResult};
-use crate::math::Vector4;
+use crate::db_internal::{vdp_clearColor, vdp_setVsyncHandler, vdp_clearDepth, vdp_depthWrite, vdp_depthFunc, vdp_blendEquation, vdp_blendFunc, vdp_setWinding, vdp_setCulling, vdp_drawGeometry, vdp_allocTexture, vdp_releaseTexture, vdp_getUsage, vdp_setTextureData, vdp_copyFbToTexture, vdp_setSampleParams, vdp_bindTexture, vdp_viewport, vdp_submitDepthQuery, vdp_getDepthQueryResult, vdp_drawGeometryPacked, vdp_setTextureDataRegion};
+use crate::math::{Vector4, Vector2};
 
 static mut VSYNC_HANDLER: Option<fn()> = Option::None;
 
@@ -33,6 +33,21 @@ pub struct Vertex {
 impl Vertex {
     pub const fn new(position: Vector4, color: Vector4, ocolor: Vector4, texcoord: Vector4) -> Vertex {
         return Vertex { position: position, color: color, ocolor: ocolor, texcoord: texcoord };
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct PackedVertex {
+    pub position: Vector4,
+    pub texcoord: Vector2,
+    pub color: Color32,
+    pub ocolor: Color32,
+}
+
+impl PackedVertex {
+    pub const fn new(position: Vector4, texcoord: Vector2, color: Color32, ocolor: Color32) -> PackedVertex {
+        return PackedVertex { position: position, texcoord: texcoord, color: color, ocolor: ocolor };
     }
 }
 
@@ -92,6 +107,20 @@ impl Texture {
     pub fn set_texture_data<T>(&self, level: i32, data: &[T]) {
         unsafe {
             vdp_setTextureData(self.handle, level, data.as_ptr().cast(), data.len().try_into().unwrap());
+        }
+    }
+
+    /// Upload texture data for the given mip level and region of this texture
+    pub fn set_texture_data_region<T>(&self, level: i32, dst_rect: Option<Rectangle>, data: &[T]) {
+        unsafe {
+            match dst_rect {
+                Some(v) => {
+                    vdp_setTextureDataRegion(self.handle, level, &v, data.as_ptr().cast(), data.len().try_into().unwrap());
+                }
+                None => {
+                    vdp_setTextureData(self.handle, level, data.as_ptr().cast(), data.len().try_into().unwrap());
+                }
+            }
         }
     }
 
@@ -235,6 +264,11 @@ pub fn set_culling(enabled: bool) {
 /// Submit a buffer of geometry to draw
 pub fn draw_geometry(topology: Topology, vertex_data: &[Vertex]) {
     unsafe { vdp_drawGeometry(topology, 0, vertex_data.len().try_into().unwrap(), vertex_data.as_ptr()) };
+}
+
+/// Submit a buffer of geometry to draw
+pub fn draw_geometry_packed(topology: Topology, vertex_data: &[PackedVertex]) {
+    unsafe { vdp_drawGeometryPacked(topology, 0, vertex_data.len().try_into().unwrap(), vertex_data.as_ptr()) };
 }
 
 /// Get total texture memory usage in bytes
