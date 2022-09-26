@@ -7,13 +7,15 @@ extern crate ktx;
 
 use std::{sync::{RwLock, Arc}, convert::TryInto};
 
-use dbmesh::{DBMesh, DBMeshPart};
+use dbanim::{DBAnimationClip, AnimationCurveLoopMode};
+use dbmesh::{DBMesh, DBMeshPart, DBSkeleton, DBSkelNode};
 use dbsdk_rs::{vdp::{self, Vertex, Texture, WindingOrder, BlendEquation, BlendFactor}, math::{Vector4, Matrix4x4, Vector3, Quaternion}, field_offset::offset_of, db::{self, log}, io::{FileStream, FileMode}};
 use lazy_static::initialize;
 use sh::SphericalHarmonics;
 use ktx::KtxInfo;
 
 mod dbmesh;
+mod dbanim;
 mod sh;
 
 const GL_RGB: u32 = 0x1907;
@@ -28,6 +30,84 @@ const GL_COMPRESSED_RGBA_S3TC_DXT3_EXT: u32 = 0x83F2;
 struct MyApp {
     t: f32,
     mesh: DBMesh,
+    anim: DBAnimationClip,
+}
+
+fn sample_anim_node(node: &DBSkelNode, anim: &DBAnimationClip, time: f32, loopmode: AnimationCurveLoopMode, parent_mat: Matrix4x4, bonepalette: &mut [Matrix4x4]) {
+    let mut local_pos = Vector3::zero();
+    let mut local_rot = Quaternion::identity();
+    let mut local_scale = Vector3::new(1.0, 1.0, 1.0);
+
+    match anim.get_channel_vec3(node.bone_index as u32, 0) {
+        Some(channel) => {
+            local_pos = match channel.sample(time, loopmode) {
+                Ok(v) => { v }
+                Err(_) => { Vector3::zero() }
+            };
+        }
+        None => {
+        }
+    };
+
+    match anim.get_channel_quat(node.bone_index as u32, 1) {
+        Some(channel) => {
+            local_rot = match channel.sample(time, loopmode) {
+                Ok(v) => { v }
+                Err(_) => { Quaternion::identity() }
+            };
+        }
+        None => {
+        }
+    };
+
+    match anim.get_channel_vec3(node.bone_index as u32, 2) {
+        Some(channel) => {
+            local_scale = match channel.sample(time, loopmode) {
+                Ok(v) => { v }
+                Err(_) => { Vector3::new(1.0, 1.0, 1.0) }
+            };
+        }
+        None => {
+        }
+    };
+
+    // compute skinning matrix
+    // in order, this matrix:
+    // - transforms vertex into bone local space
+    // - applies animation transform relative to rest pose
+    // - applies rest pose
+    // - transforms vertex back into object space (using accumulated parent transform)
+
+    let object_to_bone = node.inv_bind_pose;
+
+    // compute bone to object
+    let mut bone_to_object = Matrix4x4::identity();
+    Matrix4x4::load_simd(&Matrix4x4::scale(local_scale));
+    Matrix4x4::mul_simd(&Matrix4x4::rotation(local_rot));
+    Matrix4x4::mul_simd(&Matrix4x4::translation(local_pos));
+    Matrix4x4::mul_simd(&node.local_rest_pose);
+    Matrix4x4::mul_simd(&parent_mat);
+    Matrix4x4::store_simd(&mut bone_to_object);
+
+    // compute skinning matrix
+    let mut skin_mat = Matrix4x4::identity();
+    Matrix4x4::load_simd(&object_to_bone);
+    Matrix4x4::mul_simd(&bone_to_object);
+    Matrix4x4::store_simd(&mut skin_mat);
+
+    // write result to bone matrix palette
+    bonepalette[node.bone_index as usize] = skin_mat;
+
+    // iterate children
+    for child in &node.children {
+        sample_anim_node(child, anim, time, loopmode, bone_to_object, bonepalette);
+    }
+}
+
+fn sample_anim(skeleton: &DBSkeleton, anim: &DBAnimationClip, time: f32, loopmode: AnimationCurveLoopMode, bonepalette: &mut [Matrix4x4]) {
+    for root in skeleton.nodes.as_slice() {
+        sample_anim_node(root, anim, time, loopmode, Matrix4x4::identity(), bonepalette);
+    }
 }
 
 fn load_tex(id: &str) -> Result<Arc<Texture>,()> {
@@ -86,24 +166,52 @@ impl MyApp {
             load_tex(material_name)
         }).expect("Failed parsing mesh file");
 
+        let mut animfile = FileStream::open("/cd/content/leigh_run.dba", FileMode::Read).expect("Failed opening animation");
+        let anim = DBAnimationClip::new(&mut animfile).expect("Failed parsing animation file");
+
         return MyApp {
             t: 0.0,
-            mesh: mesh
+            mesh: mesh,
+            anim: anim,
         };
     }
 }
 
-fn draw_meshpart(meshpart: &DBMeshPart, mvp: &Matrix4x4, light: &SphericalHarmonics) {
+fn draw_meshpart(meshpart: &DBMeshPart, mvp: &Matrix4x4, light: &SphericalHarmonics, bonepalette: &[Matrix4x4]) {
     let mut light_dir = Vector3::new(0.5, 0.5, 0.5);
     light_dir.normalize();
 
     // unpack mesh part vertices into GPU vertices
     let mut vtx_buffer: Vec<Vertex> = Vec::new();
     for vertex in meshpart.vertices.as_slice() {
-        let nrm = Vector3::new(vertex.nrm[0].to_f32(), vertex.nrm[1].to_f32(), vertex.nrm[2].to_f32());
+        let mut nrm = Vector4::new(vertex.nrm[0].to_f32(), vertex.nrm[1].to_f32(), vertex.nrm[2].to_f32(), 0.0);
+
+        // skinning
+        let mut vtx = Vector4::new(vertex.pos[0].to_f32(), vertex.pos[1].to_f32(), vertex.pos[2].to_f32(), 1.0);
+        let mut sk0 = vtx;
+        let mut sk1 = vtx;
+        let mut nrm0 = nrm;
+        let mut nrm1 = nrm;
+
+        if vertex.bweight[0] > 0 {
+            sk0 = bonepalette[vertex.bidx[0] as usize] * sk0;
+            nrm0 = bonepalette[vertex.bidx[0] as usize] * nrm0;
+        }
+
+        if vertex.bweight[1] > 0 {
+            sk1 = bonepalette[vertex.bidx[1] as usize] * sk1;
+            nrm1 = bonepalette[vertex.bidx[1] as usize] * nrm1;
+        }
+
+        let weight0 = (vertex.bweight[0] as f32) / 255.0;
+        let weight1 = (vertex.bweight[1] as f32) / 255.0;
+
+        vtx = (sk0 * weight0) + (sk1 * weight1);
+        nrm = (nrm0 * weight0) + (nrm1 * weight1);
+
         vtx_buffer.push(Vertex::new(
-            Vector4::new(vertex.pos[0].to_f32(), vertex.pos[1].to_f32(), vertex.pos[2].to_f32(), 1.0),
-            Vector4::new(nrm.x, nrm.y, nrm.z, 0.0),
+            vtx,
+            nrm,
             Vector4::zero(), 
             Vector4::new(vertex.tex[0].to_f32(), vertex.tex[1].to_f32(), 0.0, 0.0)));
     }
@@ -164,14 +272,19 @@ fn tick() {
 
     // load MVP matrix into SIMD register
     let rot = Matrix4x4::rotation(Quaternion::from_euler(Vector3::new(0.0, (my_app.t * 45.0).to_radians(), 0.0)));
+    //let rot = Matrix4x4::identity();
     let translate = Matrix4x4::translation(Vector3::new(0.0, -1.25, -4.0));
     let proj = Matrix4x4::projection_perspective(640.0 / 480.0, (60.0 as f32).to_radians(), 0.1, 500.0);
+    
+    let mut mvp = Matrix4x4::identity();
     Matrix4x4::load_simd(&rot);
     Matrix4x4::mul_simd(&translate);
     Matrix4x4::mul_simd(&proj);
-
-    let mut mvp = Matrix4x4::identity();
     Matrix4x4::store_simd(&mut mvp);
+
+    // compute animation
+    let mut bone_palette: Vec<Matrix4x4> = vec![Matrix4x4::identity();my_app.mesh.skeleton.as_ref().unwrap().bone_count as usize];
+    sample_anim(&my_app.mesh.skeleton.as_ref().unwrap(), &my_app.anim, my_app.t, AnimationCurveLoopMode::Repeat, &mut bone_palette.as_mut_slice());
 
     let mut sh = SphericalHarmonics::new();
     sh.add_ambient_light(Vector3::new(0.05, 0.05, 0.1));
@@ -179,7 +292,7 @@ fn tick() {
     sh.add_directional_light(Vector3::new(-0.5, -0.5, -0.5), Vector3::new(0.5, 0.1, 1.0));
 
     for meshpart in my_app.mesh.mesh_parts.as_slice() {
-        draw_meshpart(meshpart, &mvp, &sh);
+        draw_meshpart(meshpart, &mvp, &sh, bone_palette.as_slice());
     }
 }
 

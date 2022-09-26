@@ -8,6 +8,7 @@ const DBM_VER: u32 = 1;
 
 /// Represents a skeleton loaded from DBM mesh file
 pub struct DBSkeleton {
+    pub bone_count: u32,
     pub nodes: Vec<DBSkelNode>
 }
 
@@ -15,6 +16,7 @@ pub struct DBSkeleton {
 pub struct DBSkelNode {
     pub bone_index: u8,
     pub inv_bind_pose: Matrix4x4,
+    pub local_rest_pose: Matrix4x4,
     pub children: Vec<DBSkelNode>,
 }
 
@@ -93,6 +95,23 @@ fn read_skel_node<R>(reader: &mut R) -> Result<Option<DBSkelNode>,DBMeshError> w
         }
     }
 
+    // read local rest mat
+    let mut local_rest_mat = Matrix4x4::identity();
+
+    for j in 0..4 {
+        for i in 0..4 {
+            local_rest_mat.m[i][j] = match reader.read_f32::<LittleEndian>() {
+                Ok(v) => { v },
+                Err(e) => {
+                    if e.kind() == ErrorKind::UnexpectedEof {
+                        return Ok(None);
+                    }
+                    return Err(DBMeshError::IOError(e))
+                }
+            };
+        }
+    }
+
     // read bone index
     let bone_index = match reader.read_u8() {
         Ok(v) => { v },
@@ -122,7 +141,7 @@ fn read_skel_node<R>(reader: &mut R) -> Result<Option<DBSkelNode>,DBMeshError> w
         };
     }
 
-    return Ok(Some(DBSkelNode { bone_index: bone_index, inv_bind_pose: inv_bind_mat, children: children }));
+    return Ok(Some(DBSkelNode { bone_index: bone_index, inv_bind_pose: inv_bind_mat, local_rest_pose: local_rest_mat, children: children }));
 }
 
 impl DBMesh {
@@ -189,6 +208,7 @@ impl DBMesh {
             match std::str::from_utf8(&chunk_id) {
                 Ok("SKEL") => {
                     let mut skeleton = DBSkeleton {
+                        bone_count: 0,
                         nodes: Vec::new()
                     };
 
@@ -198,7 +218,8 @@ impl DBMesh {
                         Err(e) => { return Err(DBMeshError::IOError(e)); }
                     };
 
-                    log(format!("Bone count: {}", chunk_size / 66).as_str());
+                    skeleton.bone_count = chunk_size / 130;
+                    log(format!("Bone count: {}", skeleton.bone_count).as_str());
 
                     // read skeleton from chunk & assign to mesh
                     let mut reader = chunk_data.as_slice();
@@ -212,6 +233,8 @@ impl DBMesh {
                             }
                         };
                     }
+
+                    mesh.skeleton = Some(skeleton);
                 },
                 Ok("MESH") => {
                     // append a new mesh part from chunk

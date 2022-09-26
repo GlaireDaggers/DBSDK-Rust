@@ -8,7 +8,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 byteorder = "1.4.3"
-dbsdk-rs = "0.1.7"
+dbsdk-rs = "0.1.9"
 half = "2.1.0"
 ktx = "0.3.2"
 lazy_static = "1.4.0"

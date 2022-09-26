@@ -28,9 +28,9 @@ checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
 
 [[package]]
 name = "dbsdk-rs"
-version = "0.1.7"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5dccc594bf658c8f2e28fd70b907512fd3d5a1e13cdef6efec59c52449b85e9f"
+checksum = "3081ef2706ba13b62496cf3ca937289306377b1a362d7ab0a5ffabbea9ba3ddf"
 dependencies = [
  "bitmask",
  "byteorder",
