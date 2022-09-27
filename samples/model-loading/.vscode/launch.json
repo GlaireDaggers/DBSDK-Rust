@@ -1,0 +1,16 @@
+{
+    "configurations": [
+        {
+            "name": "Launch DreamBox",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "D:\\Projects\\Dreambox-All\\dreambox\\src\\bin\\Debug\\net6.0\\win-x64\\dreambox.exe",
+            "args": [
+                "-f",
+                "${workspaceFolder}\\build\\debug.iso"
+            ],
+            "miDebuggerPath": "C:\\msys64\\mingw64\\bin\\gdb.exe",
+            "cwd": "D:\\Projects\\Dreambox-All\\dreambox\\src\\bin\\Debug\\net6.0\\win-x64",
+        }
+    ]
+}

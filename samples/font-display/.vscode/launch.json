@@ -1,0 +1,17 @@
+{
+    "configurations": [
+        {
+            "name": "Launch DreamBox",
+            "type": "lldb",
+            "request": "launch",
+            "program": "D:\\itch.io\\dreambox\\dreambox.exe",
+            "args": [
+                "-f",
+                "${workspaceFolder}\\build\\debug.iso"
+            ],
+            "console": "internalConsole",
+            "cwd": "D:\\itch.io\\dreambox",
+            "preLaunchTask": "build"
+        }
+    ]
+}
