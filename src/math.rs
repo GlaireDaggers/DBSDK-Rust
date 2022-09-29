@@ -474,6 +474,12 @@ impl Quaternion {
         self.w *= mag;
     }
 
+    /// Produce a normalized copy of the quaternion
+    pub fn normalized(&self) -> Quaternion {
+        let mag = 1.0 / (self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w).sqrt();
+        return Quaternion { x: self.x * mag, y: self.y * mag, z: self.z * mag, w: self.w * mag };
+    }
+
     /// Invert the quaternion
     pub fn invert(&mut self) {
         let n = 1.0 / (self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w);
