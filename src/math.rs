@@ -59,6 +59,12 @@ impl Vector2 {
         self.y *= mag;
     }
 
+    /// Produce a normalized copy of the vector
+    pub fn normalized(&self) -> Vector2 {
+        let mag = 1.0 / (self.x * self.x + self.y * self.y).sqrt();
+        return Vector2 { x: self.x * mag, y: self.y * mag };
+    }
+
     /// Compute the dot product of two vectors
     pub fn dot(lhs: &Vector2, rhs: &Vector2) -> f32 {
         return (lhs.x * rhs.x) + (lhs.y * rhs.y);
@@ -190,6 +196,12 @@ impl Vector3 {
         self.x *= mag;
         self.y *= mag;
         self.z *= mag;
+    }
+
+    /// Produce a normalized copy of the vector
+    pub fn normalized(&self) -> Vector3 {
+        let mag = 1.0 / (self.x * self.x + self.y * self.y + self.z * self.z).sqrt();
+        return Vector3 { x: self.x * mag, y: self.y * mag, z: self.z * mag };
     }
 
     /// Compute the dot product of two vectors
@@ -340,6 +352,12 @@ impl Vector4 {
         self.y *= mag;
         self.z *= mag;
         self.w *= mag;
+    }
+
+    /// Produce a normalized copy of the vector
+    pub fn normalized(&self) -> Vector4 {
+        let mag = 1.0 / (self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w).sqrt();
+        return Vector4 { x: self.x * mag, y: self.y * mag, z: self.z * mag, w: self.w * mag };
     }
 
     /// Compute the dot product of two vectors
