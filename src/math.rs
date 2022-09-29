@@ -201,7 +201,7 @@ impl Vector3 {
     pub fn cross(lhs: &Vector3, rhs: &Vector3) -> Vector3 {
         return Vector3 {
             x: lhs.y * rhs.z - lhs.z * rhs.y,
-            y: lhs.x * rhs.z - lhs.z * rhs.x,
+            y: -(lhs.x * rhs.z - lhs.z * rhs.x),
             z: lhs.x * rhs.y - lhs.y * rhs.x
         };
     }
