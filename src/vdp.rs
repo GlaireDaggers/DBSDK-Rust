@@ -1,7 +1,7 @@
 use std::convert::TryInto;
 use std::fmt::Debug;
 
-use crate::db_internal::{vdp_clearColor, vdp_setVsyncHandler, vdp_clearDepth, vdp_depthWrite, vdp_depthFunc, vdp_blendEquation, vdp_blendFunc, vdp_setWinding, vdp_setCulling, vdp_drawGeometry, vdp_allocTexture, vdp_releaseTexture, vdp_getUsage, vdp_setTextureData, vdp_copyFbToTexture, vdp_setSampleParams, vdp_bindTexture, vdp_viewport, vdp_submitDepthQuery, vdp_getDepthQueryResult, vdp_drawGeometryPacked, vdp_setTextureDataRegion};
+use crate::db_internal::{vdp_clearColor, vdp_setVsyncHandler, vdp_clearDepth, vdp_depthWrite, vdp_depthFunc, vdp_blendEquation, vdp_blendFunc, vdp_setWinding, vdp_setCulling, vdp_drawGeometry, vdp_allocTexture, vdp_releaseTexture, vdp_getUsage, vdp_setTextureData, vdp_copyFbToTexture, vdp_setSampleParams, vdp_bindTexture, vdp_viewport, vdp_submitDepthQuery, vdp_getDepthQueryResult, vdp_drawGeometryPacked, vdp_setTextureDataRegion, vdp_setTextureDataYUV};
 use crate::math::{Vector4, Vector2};
 
 static mut VSYNC_HANDLER: Option<fn()> = Option::None;
@@ -83,8 +83,8 @@ pub struct Texture {
 
 impl Texture {
     pub fn new(width: i32, height: i32, mipmap: bool, format: TextureFormat) -> Result<Texture,TextureError> {
-        // dimensions must be power of two
-        if (width & (width - 1)) != 0 || (height & (height - 1)) != 0 {
+        // dimensions must be power of two (unless this is a YUV420 image)
+        if format != TextureFormat::YUV420 && ((width & (width - 1)) != 0 || (height & (height - 1)) != 0) {
             return Result::Err(TextureError::DimensionsInvalid);
         }
 
@@ -107,6 +107,16 @@ impl Texture {
     pub fn set_texture_data<T>(&self, level: i32, data: &[T]) {
         unsafe {
             vdp_setTextureData(self.handle, level, data.as_ptr().cast(), data.len().try_into().unwrap());
+        }
+    }
+
+    /// Upload individual planes for this YUV texture
+    pub fn set_texture_data_yuv(&self, y_data: &[u8], u_data: &[u8], v_data: &[u8]) {
+        unsafe {
+            vdp_setTextureDataYUV(self.handle, 
+                y_data.as_ptr().cast(), y_data.len().try_into().unwrap(),
+                u_data.as_ptr().cast(), u_data.len().try_into().unwrap(),
+                v_data.as_ptr().cast(), v_data.len().try_into().unwrap());
         }
     }
 
@@ -192,12 +202,14 @@ pub enum Topology {
 
 #[repr(C)]
 #[derive(Clone, Copy)]
+#[derive(PartialEq)]
 pub enum TextureFormat {
     RGB565   = 0,
     RGBA4444 = 1,
     RGBA8888 = 2,
     DXT1     = 3,
     DXT3     = 4,
+    YUV420   = 5,
 }
 
 #[repr(C)]
