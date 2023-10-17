@@ -36,6 +36,7 @@ extern {
     pub fn vdp_releaseTexture(handle: i32);
     pub fn vdp_getUsage() -> i32;
     pub fn vdp_setTextureData(handle: i32, level: i32, data: *const c_void, dataLen: i32);
+    pub fn vdp_setTextureDataYUV(handle: i32, yData: *const c_void, yDataLen: i32, uData: *const c_void, uDataLen: i32, vData: *const c_void, vDataLen: i32);
     pub fn vdp_setTextureDataRegion(handle: i32, level: i32, dstRect: *const Rectangle, data: *const c_void, dataLen: i32);
     pub fn vdp_copyFbToTexture(srcRect: *const Rectangle, dstRect: *const Rectangle, dstTexture: i32);
     pub fn vdp_setSampleParams(filter: TextureFilter, wrapU: TextureWrap, wrapV: TextureWrap);
