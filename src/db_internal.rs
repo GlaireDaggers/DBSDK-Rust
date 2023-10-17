@@ -1,4 +1,4 @@
-use std::mem::size_of;
+use std::mem::{size_of, align_of};
 use std::{alloc::Layout, os::raw::c_char, ffi::c_void};
 
 use crate::clock::DateTime;
@@ -86,7 +86,8 @@ extern {
     // pub fn clock_datetimeToTimestamp(datetime: *const DateTime) -> u64;
 }
 
-const SIZE_SIZE: usize = size_of::<i32>();
+const SIZE_SIZE: usize = size_of::<i64>();
+const MAX_ALIGN: usize = align_of::<i64>();
 
 #[used]
 pub static mut ERRNO: i32 = 0;
@@ -98,26 +99,33 @@ pub fn __errno_location() -> *mut i32 {
 
 #[no_mangle]
 pub fn malloc(size: i32) -> *mut c_void {
-    // basically we just allocate a block of memory with a 4-byte preamble that stores the length
+    // basically we just allocate a block of memory with an 8-byte preamble that stores the length (we use 8 bytes to maintain alignment) 
     // that way, we can pass the raw pointer to C, and then when we get the pointer back we do some arithmetic to get at the original preamble
     // and then we can reconstruct the Layout that was passed to alloc
 
+    // NOTE: we align to align_of::<i64>() which is the equivalent of C's max_align_t for wasm32
+    // this matches the behavior of C's malloc
+
+    // NOTE: removed write_unaligned b/c it is no longer necessary - malloc is already 8-byte aligned
+
     let actual_size = SIZE_SIZE + usize::try_from(size).unwrap();
-    let layout = Layout::array::<u8>(actual_size).unwrap();
+    let layout = Layout::array::<u8>(actual_size).unwrap().align_to(MAX_ALIGN).unwrap();
     let mem = unsafe { std::alloc::alloc(layout) };
     if !mem.is_null() {
-        unsafe { mem.cast::<i32>().write_unaligned(size) };
+        unsafe { mem.cast::<i64>().write(size.into()) };
     }
     unsafe { mem.add(SIZE_SIZE) }.cast()
 }
 
 #[no_mangle]
 pub fn free(ptr: *mut c_void) {
-    // back up by 4 bytes to get at the preamble, which contains the allocated size
+    // back up by 8 bytes to get at the preamble, which contains the allocated size
 
-    let ptr = unsafe { ptr.sub(4) }.cast::<u8>();
-    let size = unsafe { ptr.cast::<i32>().read_unaligned() };
+    // NOTE: removed read_unaligned b/c it is no longer necessary - malloc is already 8-byte aligned
+
+    let ptr = unsafe { ptr.sub(SIZE_SIZE) }.cast::<u8>();
+    let size = unsafe { ptr.cast::<i64>().read() };
     let actual_size = SIZE_SIZE + usize::try_from(size).unwrap();
-    let layout = Layout::array::<u8>(actual_size).unwrap();
+    let layout = Layout::array::<u8>(actual_size).unwrap().align_to(MAX_ALIGN).unwrap();
     unsafe { std::alloc::dealloc(ptr, layout) };
 }
