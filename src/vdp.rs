@@ -126,7 +126,8 @@ impl Texture {
         unsafe {
             match dst_rect {
                 Some(v) => {
-                    vdp_setTextureDataRegion(self.handle, level, &v, data.as_ptr().cast(), data.len().try_into().unwrap());
+                    let len_bytes = data.len() * size_of::<T>();
+                    vdp_setTextureDataRegion(self.handle, level, &v, data.as_ptr().cast(), len_bytes.try_into().unwrap());
                 }
                 None => {
                     vdp_setTextureData(self.handle, level, data.as_ptr().cast(), data.len().try_into().unwrap());
