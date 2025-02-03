@@ -3,7 +3,7 @@ use core::fmt::Display;
 use crate::db_internal::{clock_getTimestamp, clock_timestampToDatetime};
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct DateTime {
     pub year: u16,
     pub month: u8,

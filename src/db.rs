@@ -1,5 +1,11 @@
-use std::{ffi::CString};
+use std::ffi::CString;
 use crate::db_internal::db_log;
+
+/// Print a formatted message to debug output
+#[macro_export]
+macro_rules! logfmt {
+    ($($arg:tt)*) => (log(format!($($arg)*).as_str()));
+}
 
 /// Prints a message to debug output
 pub fn log(str: &str) {
@@ -12,6 +18,6 @@ pub fn log(str: &str) {
 /// Register custom DreamBox-specific panic handler
 pub fn register_panic() {
     std::panic::set_hook(Box::new(|panic_info| {
-        log(format!("FATAL ERROR: {}", panic_info).as_str());
+        logfmt!("FATAL ERROR: {}", panic_info);
     }));
 }

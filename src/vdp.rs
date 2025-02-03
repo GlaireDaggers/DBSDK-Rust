@@ -106,7 +106,8 @@ impl Texture {
     /// Upload texture data for the given mip level of this texture
     pub fn set_texture_data<T>(&self, level: i32, data: &[T]) {
         unsafe {
-            vdp_setTextureData(self.handle, level, data.as_ptr().cast(), data.len().try_into().unwrap());
+            let len_bytes = data.len() * size_of::<T>();
+            vdp_setTextureData(self.handle, level, data.as_ptr().cast(), len_bytes.try_into().unwrap());
         }
     }
 
@@ -228,8 +229,8 @@ pub enum TextureWrap {
 }
 
 unsafe extern "C" fn real_vsync_handler() {
-    if VSYNC_HANDLER.is_some() {
-        VSYNC_HANDLER.unwrap()();
+    if let Some(handler) = VSYNC_HANDLER {
+        handler();
     }
 }
 

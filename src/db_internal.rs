@@ -95,7 +95,7 @@ pub static mut ERRNO: i32 = 0;
 
 #[no_mangle]
 pub fn __errno_location() -> *mut i32 {
-    unsafe { &mut ERRNO }
+    &raw mut ERRNO
 }
 
 #[no_mangle]

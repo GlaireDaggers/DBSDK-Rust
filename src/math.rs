@@ -5,7 +5,7 @@ use field_offset::FieldOffset;
 use crate::db_internal::{mat4_loadSIMD, mat4_storeSIMD, mat4_mulSIMD, mat4_transformSIMD};
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Vector2 {
     pub x: f32,
     pub y: f32,
@@ -136,7 +136,7 @@ impl ops::Div<Vector2> for f32 {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Vector3 {
     pub x: f32,
     pub y: f32,
@@ -284,7 +284,7 @@ impl ops::Div<Vector3> for f32 {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Vector4 {
     pub x: f32,
     pub y: f32,
@@ -431,7 +431,7 @@ impl ops::Div<Vector4> for f32 {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Quaternion {
     pub x: f32,
     pub y: f32,
@@ -519,7 +519,7 @@ impl ops::Mul<Vector3> for Quaternion {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Matrix4x4 {
     pub m: [[f32;4];4],
 }

@@ -1,4 +1,4 @@
-use std::{convert::TryInto};
+use std::convert::TryInto;
 
 use crate::db_internal::{audio_alloc, audio_allocCompressed, audio_free, audio_getUsage, audio_queueSetParam_i, audio_queueSetParam_f, audio_queueStartVoice, audio_queueStopVoice, audio_getVoiceState, audio_getTime, audio_setReverbParams, audio_initSynth, audio_playMidi, audio_setMidiReverb, audio_setMidiVolume};
 

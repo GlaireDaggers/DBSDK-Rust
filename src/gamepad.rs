@@ -34,7 +34,7 @@ bitmask! {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct GamepadState {
     pub button_mask: GamepadButtonMask,
     pub left_stick_x: i16,
