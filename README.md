@@ -9,4 +9,4 @@ dbsdk-rs = "0.1.14"
 ```
 
 ## Documentation
-View docs at https://docs.rs/dbsdk-rs/0.1.12/dbsdk_rs/
+View docs at https://docs.rs/dbsdk-rs/0.1.14/dbsdk_rs/
