@@ -1,7 +1,7 @@
 use std::convert::TryInto;
 use std::fmt::Debug;
 
-use crate::db_internal::{vdp_clearColor, vdp_setVsyncHandler, vdp_clearDepth, vdp_depthWrite, vdp_depthFunc, vdp_blendEquation, vdp_blendFunc, vdp_setWinding, vdp_setCulling, vdp_drawGeometry, vdp_allocTexture, vdp_releaseTexture, vdp_getUsage, vdp_setTextureData, vdp_copyFbToTexture, vdp_setSampleParams, vdp_bindTexture, vdp_viewport, vdp_submitDepthQuery, vdp_getDepthQueryResult, vdp_drawGeometryPacked, vdp_setTextureDataRegion, vdp_setTextureDataYUV};
+use crate::db_internal::{vdp_allocRenderTexture, vdp_allocTexture, vdp_bindTexture, vdp_bindTextureSlot, vdp_blendEquation, vdp_blendFunc, vdp_clearColor, vdp_clearDepth, vdp_copyFbToTexture, vdp_depthFunc, vdp_depthWrite, vdp_drawGeometry, vdp_drawGeometryPacked, vdp_getDepthQueryResult, vdp_getUsage, vdp_releaseTexture, vdp_setCulling, vdp_setRenderTarget, vdp_setSampleParams, vdp_setSampleParamsSlot, vdp_setTexCombine, vdp_setTextureData, vdp_setTextureDataRegion, vdp_setTextureDataYUV, vdp_setVUCData, vdp_setVULayout, vdp_setVUStride, vdp_setVsyncHandler, vdp_setWinding, vdp_submitDepthQuery, vdp_submitVU, vdp_uploadVUProgram, vdp_viewport};
 use crate::math::{Vector4, Vector2};
 
 static mut VSYNC_HANDLER: Option<fn()> = Option::None;
@@ -72,6 +72,10 @@ pub enum TextureError {
     AllocationFailed
 }
 
+pub trait DBTex {
+    fn get_handle(self: &Self) -> i32;
+}
+
 #[repr(C)]
 pub struct Texture {
     pub format: TextureFormat,
@@ -79,6 +83,25 @@ pub struct Texture {
     pub height: i32,
     pub mipmap: bool,
     handle: i32,
+}
+
+#[repr(C)]
+pub struct RenderTexture {
+    pub width: i32,
+    pub height: i32,
+    handle: i32,
+}
+
+impl DBTex for Texture {
+    fn get_handle(self: &Self) -> i32 {
+        self.handle
+    }
+}
+
+impl DBTex for RenderTexture {
+    fn get_handle(self: &Self) -> i32 {
+        self.handle
+    }
 }
 
 impl Texture {
@@ -145,6 +168,33 @@ impl Texture {
 }
 
 impl Drop for Texture {
+    fn drop(&mut self) {
+        unsafe { vdp_releaseTexture(self.handle) };
+    }
+}
+
+impl RenderTexture {
+    pub fn new(width: i32, height: i32) -> Result<RenderTexture,TextureError> {
+        // dimensions must be power of two
+        if (width & (width - 1)) != 0 || (height & (height - 1)) != 0 {
+            return Result::Err(TextureError::DimensionsInvalid);
+        }
+
+        // allocate and check to see if allocation failed
+        let handle = unsafe { vdp_allocRenderTexture(width, height) };
+        if handle == -1 {
+            return Result::Err(TextureError::AllocationFailed);
+        }
+
+        return Result::Ok(RenderTexture {
+            width: width,
+            height: height,
+            handle: handle
+        });
+    }
+}
+
+impl Drop for RenderTexture {
     fn drop(&mut self) {
         unsafe { vdp_releaseTexture(self.handle) };
     }
@@ -229,6 +279,38 @@ pub enum TextureWrap {
     Mirror      = 0x8370,
 }
 
+#[repr(C)]
+#[derive(Clone, Copy)]
+#[derive(PartialEq)]
+pub enum VertexSlotFormat {
+    FLOAT1   = 0,
+    FLOAT2   = 1,
+    FLOAT3   = 2,
+    FLOAT4   = 3,
+    UNORM4   = 4,
+    SNORM4   = 5,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+#[derive(PartialEq)]
+pub enum TexCombine {
+    None    = 0,
+    Mul     = 1,
+    Add     = 2,
+    Sub     = 3,
+    Mix     = 4,
+    Dot3    = 5,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+#[derive(PartialEq)]
+pub enum TextureUnit {
+    TU0 = 0,
+    TU1 = 1,
+}
+
 unsafe extern "C" fn real_vsync_handler() {
     if let Some(handler) = VSYNC_HANDLER {
         handler();
@@ -276,11 +358,13 @@ pub fn set_culling(enabled: bool) {
 }
 
 /// Submit a buffer of geometry to draw
+#[deprecated(since = "0.1.16", note = "New apps should prefer a custom vertex layout in combination with submit_vu instead")]
 pub fn draw_geometry(topology: Topology, vertex_data: &[Vertex]) {
     unsafe { vdp_drawGeometry(topology, 0, vertex_data.len().try_into().unwrap(), vertex_data.as_ptr()) };
 }
 
 /// Submit a buffer of geometry to draw
+#[deprecated(since = "0.1.16", note = "Use submit_vu instead")]
 pub fn draw_geometry_packed(topology: Topology, vertex_data: &[PackedVertex]) {
     unsafe { vdp_drawGeometryPacked(topology, 0, vertex_data.len().try_into().unwrap(), vertex_data.as_ptr()) };
 }
@@ -291,11 +375,13 @@ pub fn get_usage() -> i32 {
 }
 
 /// Set currently active texture sampling parameters
+#[deprecated(since = "0.1.16", note = "Use set_sample_params_slot instead")]
 pub fn set_sample_params(filter: TextureFilter, wrap_u: TextureWrap, wrap_v: TextureWrap) {
     unsafe { vdp_setSampleParams(filter, wrap_u, wrap_v) };
 }
 
 /// Bind a texture for drawing
+#[deprecated(since = "0.1.16", note = "Use bind_texture_slot instead")]
 pub fn bind_texture(texture: Option<&Texture>) {
     if texture.is_some() {
         unsafe { vdp_bindTexture(texture.unwrap().handle) };
@@ -322,6 +408,85 @@ pub fn submit_depth_query(ref_val: f32, compare: Compare, rect: Rectangle) {
 pub fn get_depth_query_result() -> i32 {
     unsafe {
         return vdp_getDepthQueryResult();
+    }
+}
+
+/// Set one of VU's 16 const data slots to given vector
+pub fn set_vu_cdata(offset: usize, data: &Vector4) {
+    unsafe {
+        vdp_setVUCData(offset as i32, (data as *const Vector4).cast());
+    }
+}
+
+/// Configure input vertex element slot layout
+pub fn set_vu_layout(slot: usize, offset: usize, format: VertexSlotFormat) {
+    unsafe {
+        vdp_setVULayout(slot as i32, offset as i32, format);
+    }
+}
+
+/// Set stride of input vertex data (size of each vertex in bytes)
+pub fn set_vu_stride(stride: usize) {
+    unsafe {
+        vdp_setVUStride(stride as i32);
+    }
+}
+
+/// Upload a new VU program
+pub fn upload_vu_program(program: &[u32]) {
+    unsafe {
+        let program_len = program.len() * 4;
+        vdp_uploadVUProgram(program.as_ptr().cast(), program_len as i32);
+    }
+}
+
+/// Submit geometry to be processed by the VU
+pub fn submit_vu<T>(topology: Topology, data: &[T]) {
+    unsafe {
+        let data_len = data.len() * size_of::<T>();
+        vdp_submitVU(topology, data.as_ptr().cast(), data_len as i32);
+    }
+}
+
+/// Set the current render target
+pub fn set_render_target(texture: Option<RenderTexture>) {
+    unsafe {
+        match texture {
+            Some(v) => {
+                vdp_setRenderTarget(v.handle);
+            }
+            None => {
+                vdp_setRenderTarget(-1);
+            }
+        }
+    }
+}
+
+/// Set texture sample params for the given texture unit
+pub fn set_sample_params_slot(slot: TextureUnit, filter: TextureFilter, wrap_u: TextureWrap, wrap_v: TextureWrap) {
+    unsafe {
+        vdp_setSampleParamsSlot(slot, filter, wrap_u, wrap_v);
+    }
+}
+
+/// Bind a texture to the given texture unit
+pub fn bind_texture_slot<T: DBTex>(slot: TextureUnit, texture: Option<&T>) {
+    unsafe {
+        match texture {
+            Some(v) => {
+                vdp_bindTextureSlot(slot, v.get_handle());
+            }
+            None => {
+                vdp_bindTextureSlot(slot, -1);
+            }
+        }
+    }
+}
+
+/// Set texture combiner mode
+pub fn set_tex_combine(tex_combine: TexCombine, vtx_combine: TexCombine) {
+    unsafe {
+        vdp_setTexCombine(tex_combine, vtx_combine);
     }
 }
 

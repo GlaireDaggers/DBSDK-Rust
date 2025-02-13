@@ -7,4 +7,5 @@ pub mod gamepad;
 pub mod io;
 pub mod clock;
 pub mod sounddriver;
-pub extern crate field_offset;
+pub use field_offset;
+pub use dbsdk_vu_asm as vu_asm;

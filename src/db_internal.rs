@@ -40,6 +40,16 @@ extern {
     pub fn vdp_setTextureDataRegion(handle: i32, level: i32, dstRect: *const Rectangle, data: *const c_void, dataLen: i32);
     pub fn vdp_copyFbToTexture(srcRect: *const Rectangle, dstRect: *const Rectangle, dstTexture: i32);
     pub fn vdp_setSampleParams(filter: TextureFilter, wrapU: TextureWrap, wrapV: TextureWrap);
+    pub fn vdp_setVUCData(offset: i32, data: *const c_void);
+    pub fn vdp_setVULayout(slot: i32, offset: i32, format: VertexSlotFormat);
+    pub fn vdp_setVUStride(stride: i32);
+    pub fn vdp_uploadVUProgram(program: *const c_void, programLen: i32);
+    pub fn vdp_submitVU(topology: Topology, data: *const c_void, dataLen: i32);
+    pub fn vdp_setSampleParamsSlot(slot: TextureUnit, filter: TextureFilter, wrap_u: TextureWrap, wrap_v: TextureWrap);
+    pub fn vdp_bindTextureSlot(slot: TextureUnit, handle: i32);
+    pub fn vdp_setTexCombine(tex_combine: TexCombine, vtx_combine: TexCombine);
+    pub fn vdp_allocRenderTexture(width: i32, height: i32) -> i32;
+    pub fn vdp_setRenderTarget(handle: i32);
     pub fn vdp_bindTexture(handle: i32);
     pub fn vdp_viewport(x: i32, y: i32, w: i32, h: i32);
     pub fn vdp_submitDepthQuery(refVal: f32, compare: Compare, x: i32, y: i32, w: i32, h: i32);

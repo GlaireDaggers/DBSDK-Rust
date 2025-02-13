@@ -534,6 +534,37 @@ impl Matrix4x4 {
         ] };
     }
 
+    /// Return the given row of the matrix as a vector
+    pub fn get_row(self: &Matrix4x4, index: usize) -> Vector4 {
+        Vector4::new(self.m[0][index], self.m[1][index], self.m[2][index], self.m[3][index])
+    }
+
+    /// Return the given column of the matrix as a vector
+    pub fn get_column(self: &Matrix4x4, index: usize) -> Vector4 {
+        Vector4::new(self.m[index][0], self.m[index][1], self.m[index][2], self.m[index][3])
+    }
+
+    /// Transpose the rows and columns of the matrix
+    pub fn transpose(self: &mut Matrix4x4) {
+        let c0 = self.m[0];
+        let c1 = self.m[1];
+        let c2 = self.m[2];
+        let c3 = self.m[3];
+
+        self.m[0] = [c0[0], c1[0], c2[0], c3[0]];
+        self.m[1] = [c0[1], c1[1], c2[1], c3[1]];
+        self.m[2] = [c0[2], c1[2], c2[2], c3[2]];
+        self.m[3] = [c0[3], c1[3], c2[3], c3[3]];
+    }
+
+    /// Returns a transposed version of the matrix
+    pub fn transposed(self: &Matrix4x4) -> Matrix4x4 {
+        let mut ret = *self;
+        ret.transpose();
+
+        return ret;
+    }
+
     /// Construct a translation matrix
     pub fn translation(translation: Vector3) -> Matrix4x4 {
         return Matrix4x4 { m: [
@@ -644,27 +675,33 @@ impl Matrix4x4 {
     }
 
     /// Load an identity matrix into the SIMD register
+    #[deprecated(since = "0.1.16", note = "Dreambox v2.x now directly supports compiling with SIMD intrinsics")]
+    #[allow(deprecated)]
     pub fn load_identity_simd() {
         let m = Matrix4x4::identity();
         Matrix4x4::load_simd(&m);
     }
 
     /// Load a matrix into the SIMD register
+    #[deprecated(since = "0.1.16", note = "Dreambox v2.x now directly supports compiling with WASM SIMD intrinsics")]
     pub fn load_simd(matrix: &Matrix4x4) {
         unsafe { mat4_loadSIMD(matrix) };
     }
 
     /// Store the current value of the SIMD register to the given matrix
+    #[deprecated(since = "0.1.16", note = "Dreambox v2.x now directly supports compiling with WASM SIMD intrinsics")]
     pub fn store_simd(matrix: &mut Matrix4x4) {
         unsafe { mat4_storeSIMD(matrix) };
     }
 
     /// Multiply the matrix in the SIMD register by the given matrix
+    #[deprecated(since = "0.1.16", note = "Dreambox v2.x now directly supports compiling with WASM SIMD intrinsics")]
     pub fn mul_simd(matrix: &Matrix4x4) {
         unsafe { mat4_mulSIMD(matrix) };
     }
 
     /// Transform an array of vectors using the SIMD matrix register
+    #[deprecated(since = "0.1.16", note = "Dreambox v2.x now directly supports compiling with WASM SIMD intrinsics")]
     pub fn transform_vector_simd(data: &mut [Vector4]) {
         unsafe {
             let ptr = data.as_mut_ptr();
@@ -674,6 +711,7 @@ impl Matrix4x4 {
     }
 
     /// Transform a field of an array of input vertex structs using the SIMD matrix register
+    #[deprecated(since = "0.1.16", note = "Dreambox v2.x now directly supports compiling with WASM SIMD intrinsics")]
     pub fn transform_vertex_simd<T>(data: &mut [T], field: FieldOffset<T,Vector4>) {
         unsafe {
             let fieldref = field.apply_ptr_mut(data.as_mut_ptr());
@@ -692,6 +730,138 @@ impl ops::Mul<Vector4> for Matrix4x4 {
         let z = (rhs.x * self.m[0][2]) + (rhs.y * self.m[1][2]) + (rhs.z * self.m[2][2]) + (rhs.w * self.m[3][2]);
         let w = (rhs.x * self.m[0][3]) + (rhs.y * self.m[1][3]) + (rhs.z * self.m[2][3]) + (rhs.w * self.m[3][3]);
 
-        return Vector4 { x: x, y: y, z: z, w: w };
+        return Vector4 { x, y, z, w };
+    }
+}
+
+impl ops::Mul<f32> for Matrix4x4 {
+    type Output = Matrix4x4;
+
+    fn mul(self, rhs: f32) -> Matrix4x4 {
+        let m00 = self.m[0][0] * rhs;
+        let m10 = self.m[1][0] * rhs;
+        let m20 = self.m[2][0] * rhs;
+        let m30 = self.m[3][0] * rhs;
+        
+        let m01 = self.m[0][1] * rhs;
+        let m11 = self.m[1][1] * rhs;
+        let m21 = self.m[2][1] * rhs;
+        let m31 = self.m[3][1] * rhs;
+        
+        let m02 = self.m[0][2] * rhs;
+        let m12 = self.m[1][2] * rhs;
+        let m22 = self.m[2][2] * rhs;
+        let m32 = self.m[3][2] * rhs;
+        
+        let m03 = self.m[0][3] * rhs;
+        let m13 = self.m[1][3] * rhs;
+        let m23 = self.m[2][3] * rhs;
+        let m33 = self.m[3][3] * rhs;
+
+        return Matrix4x4 { m: [
+            [m00, m10, m20, m30],
+            [m01, m11, m21, m31],
+            [m02, m12, m22, m32],
+            [m03, m13, m23, m33],
+        ] };
+    }
+}
+
+impl ops::Mul<Matrix4x4> for Matrix4x4 {
+    type Output = Matrix4x4;
+
+    fn mul(self, rhs: Matrix4x4) -> Matrix4x4 {
+        let m00 = (self.m[0][0] * rhs.m[0][0]) + (self.m[1][0] * rhs.m[0][1]) + (self.m[2][0] * rhs.m[0][2]) + (self.m[3][0] * rhs.m[0][3]);
+        let m10 = (self.m[0][0] * rhs.m[1][0]) + (self.m[1][0] * rhs.m[1][1]) + (self.m[2][0] * rhs.m[1][2]) + (self.m[3][0] * rhs.m[1][3]);
+        let m20 = (self.m[0][0] * rhs.m[2][0]) + (self.m[1][0] * rhs.m[2][1]) + (self.m[2][0] * rhs.m[2][2]) + (self.m[3][0] * rhs.m[2][3]);
+        let m30 = (self.m[0][0] * rhs.m[3][0]) + (self.m[1][0] * rhs.m[3][1]) + (self.m[2][0] * rhs.m[3][2]) + (self.m[3][0] * rhs.m[3][3]);
+
+        let m01 = (self.m[0][1] * rhs.m[0][0]) + (self.m[1][1] * rhs.m[0][1]) + (self.m[2][1] * rhs.m[0][2]) + (self.m[3][1] * rhs.m[0][3]);
+        let m11 = (self.m[0][1] * rhs.m[1][0]) + (self.m[1][1] * rhs.m[1][1]) + (self.m[2][1] * rhs.m[1][2]) + (self.m[3][1] * rhs.m[1][3]);
+        let m21 = (self.m[0][1] * rhs.m[2][0]) + (self.m[1][1] * rhs.m[2][1]) + (self.m[2][1] * rhs.m[2][2]) + (self.m[3][1] * rhs.m[2][3]);
+        let m31 = (self.m[0][1] * rhs.m[3][0]) + (self.m[1][1] * rhs.m[3][1]) + (self.m[2][1] * rhs.m[3][2]) + (self.m[3][1] * rhs.m[3][3]);
+
+        let m02 = (self.m[0][2] * rhs.m[0][0]) + (self.m[1][2] * rhs.m[0][1]) + (self.m[2][2] * rhs.m[0][2]) + (self.m[3][2] * rhs.m[0][3]);
+        let m12 = (self.m[0][2] * rhs.m[1][0]) + (self.m[1][2] * rhs.m[1][1]) + (self.m[2][2] * rhs.m[1][2]) + (self.m[3][2] * rhs.m[1][3]);
+        let m22 = (self.m[0][2] * rhs.m[2][0]) + (self.m[1][2] * rhs.m[2][1]) + (self.m[2][2] * rhs.m[2][2]) + (self.m[3][2] * rhs.m[2][3]);
+        let m32 = (self.m[0][2] * rhs.m[3][0]) + (self.m[1][2] * rhs.m[3][1]) + (self.m[2][2] * rhs.m[3][2]) + (self.m[3][2] * rhs.m[3][3]);
+
+        let m03 = (self.m[0][3] * rhs.m[0][0]) + (self.m[1][3] * rhs.m[0][1]) + (self.m[2][3] * rhs.m[0][2]) + (self.m[3][3] * rhs.m[0][3]);
+        let m13 = (self.m[0][3] * rhs.m[1][0]) + (self.m[1][3] * rhs.m[1][1]) + (self.m[2][3] * rhs.m[1][2]) + (self.m[3][3] * rhs.m[1][3]);
+        let m23 = (self.m[0][3] * rhs.m[2][0]) + (self.m[1][3] * rhs.m[2][1]) + (self.m[2][3] * rhs.m[2][2]) + (self.m[3][3] * rhs.m[2][3]);
+        let m33 = (self.m[0][3] * rhs.m[3][0]) + (self.m[1][3] * rhs.m[3][1]) + (self.m[2][3] * rhs.m[3][2]) + (self.m[3][3] * rhs.m[3][3]);
+
+        return Matrix4x4 { m: [
+            [m00, m10, m20, m30],
+            [m01, m11, m21, m31],
+            [m02, m12, m22, m32],
+            [m03, m13, m23, m33],
+        ] };
+    }
+}
+
+impl ops::Add<Matrix4x4> for Matrix4x4 {
+    type Output = Matrix4x4;
+
+    fn add(self, rhs: Matrix4x4) -> Matrix4x4 {
+        let m00 = self.m[0][0] + rhs.m[0][0];
+        let m10 = self.m[1][0] + rhs.m[1][0];
+        let m20 = self.m[2][0] + rhs.m[2][0];
+        let m30 = self.m[3][0] + rhs.m[3][0];
+        
+        let m01 = self.m[0][1] + rhs.m[0][1];
+        let m11 = self.m[1][1] + rhs.m[1][1];
+        let m21 = self.m[2][1] + rhs.m[2][1];
+        let m31 = self.m[3][1] + rhs.m[3][1];
+        
+        let m02 = self.m[0][2] + rhs.m[0][2];
+        let m12 = self.m[1][2] + rhs.m[1][2];
+        let m22 = self.m[2][2] + rhs.m[2][2];
+        let m32 = self.m[3][2] + rhs.m[3][2];
+        
+        let m03 = self.m[0][3] + rhs.m[0][3];
+        let m13 = self.m[1][3] + rhs.m[1][3];
+        let m23 = self.m[2][3] + rhs.m[2][3];
+        let m33 = self.m[3][3] + rhs.m[3][3];
+
+        return Matrix4x4 { m: [
+            [m00, m10, m20, m30],
+            [m01, m11, m21, m31],
+            [m02, m12, m22, m32],
+            [m03, m13, m23, m33],
+        ] };
+    }
+}
+
+impl ops::Sub<Matrix4x4> for Matrix4x4 {
+    type Output = Matrix4x4;
+
+    fn sub(self, rhs: Matrix4x4) -> Matrix4x4 {
+        let m00 = self.m[0][0] - rhs.m[0][0];
+        let m10 = self.m[1][0] - rhs.m[1][0];
+        let m20 = self.m[2][0] - rhs.m[2][0];
+        let m30 = self.m[3][0] - rhs.m[3][0];
+        
+        let m01 = self.m[0][1] - rhs.m[0][1];
+        let m11 = self.m[1][1] - rhs.m[1][1];
+        let m21 = self.m[2][1] - rhs.m[2][1];
+        let m31 = self.m[3][1] - rhs.m[3][1];
+        
+        let m02 = self.m[0][2] - rhs.m[0][2];
+        let m12 = self.m[1][2] - rhs.m[1][2];
+        let m22 = self.m[2][2] - rhs.m[2][2];
+        let m32 = self.m[3][2] - rhs.m[3][2];
+        
+        let m03 = self.m[0][3] - rhs.m[0][3];
+        let m13 = self.m[1][3] - rhs.m[1][3];
+        let m23 = self.m[2][3] - rhs.m[2][3];
+        let m33 = self.m[3][3] - rhs.m[3][3];
+
+        return Matrix4x4 { m: [
+            [m00, m10, m20, m30],
+            [m01, m11, m21, m31],
+            [m02, m12, m22, m32],
+            [m03, m13, m23, m33],
+        ] };
     }
 }
