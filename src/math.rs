@@ -771,25 +771,25 @@ impl ops::Mul<Matrix4x4> for Matrix4x4 {
     type Output = Matrix4x4;
 
     fn mul(self, rhs: Matrix4x4) -> Matrix4x4 {
-        let m00 = (self.m[0][0] * rhs.m[0][0]) + (self.m[0][1] * rhs.m[0][1]) + (self.m[0][2] * rhs.m[0][2]) + (self.m[0][3] * rhs.m[0][3]);
-        let m10 = (self.m[0][0] * rhs.m[1][0]) + (self.m[0][1] * rhs.m[1][1]) + (self.m[0][2] * rhs.m[1][2]) + (self.m[0][3] * rhs.m[1][3]);
-        let m20 = (self.m[0][0] * rhs.m[2][0]) + (self.m[0][1] * rhs.m[2][1]) + (self.m[0][2] * rhs.m[2][2]) + (self.m[0][3] * rhs.m[2][3]);
-        let m30 = (self.m[0][0] * rhs.m[3][0]) + (self.m[0][1] * rhs.m[3][1]) + (self.m[0][2] * rhs.m[3][2]) + (self.m[0][3] * rhs.m[3][3]);
+        let m00 = (self.m[0][0] * rhs.m[0][0]) + (self.m[0][1] * rhs.m[1][0]) + (self.m[0][2] * rhs.m[2][0]) + (self.m[0][3] * rhs.m[3][0]);
+        let m10 = (self.m[0][0] * rhs.m[0][1]) + (self.m[0][1] * rhs.m[1][1]) + (self.m[0][2] * rhs.m[2][1]) + (self.m[0][3] * rhs.m[3][1]);
+        let m20 = (self.m[0][0] * rhs.m[0][2]) + (self.m[0][1] * rhs.m[1][2]) + (self.m[0][2] * rhs.m[2][2]) + (self.m[0][3] * rhs.m[3][2]);
+        let m30 = (self.m[0][0] * rhs.m[0][3]) + (self.m[0][1] * rhs.m[1][3]) + (self.m[0][2] * rhs.m[2][3]) + (self.m[0][3] * rhs.m[3][3]);
 
-        let m01 = (self.m[1][0] * rhs.m[0][0]) + (self.m[1][1] * rhs.m[0][1]) + (self.m[1][2] * rhs.m[0][2]) + (self.m[1][3] * rhs.m[0][3]);
-        let m11 = (self.m[1][0] * rhs.m[1][0]) + (self.m[1][1] * rhs.m[1][1]) + (self.m[1][2] * rhs.m[1][2]) + (self.m[1][3] * rhs.m[1][3]);
-        let m21 = (self.m[1][0] * rhs.m[2][0]) + (self.m[1][1] * rhs.m[2][1]) + (self.m[1][2] * rhs.m[2][2]) + (self.m[1][3] * rhs.m[2][3]);
-        let m31 = (self.m[1][0] * rhs.m[3][0]) + (self.m[1][1] * rhs.m[3][1]) + (self.m[1][2] * rhs.m[3][2]) + (self.m[1][3] * rhs.m[3][3]);
+        let m01 = (self.m[1][0] * rhs.m[0][0]) + (self.m[1][1] * rhs.m[1][0]) + (self.m[1][2] * rhs.m[2][0]) + (self.m[1][3] * rhs.m[3][0]);
+        let m11 = (self.m[1][0] * rhs.m[0][1]) + (self.m[1][1] * rhs.m[1][1]) + (self.m[1][2] * rhs.m[2][1]) + (self.m[1][3] * rhs.m[3][1]);
+        let m21 = (self.m[1][0] * rhs.m[0][2]) + (self.m[1][1] * rhs.m[1][2]) + (self.m[1][2] * rhs.m[2][2]) + (self.m[1][3] * rhs.m[3][2]);
+        let m31 = (self.m[1][0] * rhs.m[0][3]) + (self.m[1][1] * rhs.m[1][3]) + (self.m[1][2] * rhs.m[2][3]) + (self.m[1][3] * rhs.m[3][3]);
 
-        let m02 = (self.m[2][0] * rhs.m[0][0]) + (self.m[2][1] * rhs.m[0][1]) + (self.m[2][2] * rhs.m[0][2]) + (self.m[2][3] * rhs.m[0][3]);
-        let m12 = (self.m[2][0] * rhs.m[1][0]) + (self.m[2][1] * rhs.m[1][1]) + (self.m[2][2] * rhs.m[1][2]) + (self.m[2][3] * rhs.m[1][3]);
-        let m22 = (self.m[2][0] * rhs.m[2][0]) + (self.m[2][1] * rhs.m[2][1]) + (self.m[2][2] * rhs.m[2][2]) + (self.m[2][3] * rhs.m[2][3]);
-        let m32 = (self.m[2][0] * rhs.m[3][0]) + (self.m[2][1] * rhs.m[3][1]) + (self.m[2][2] * rhs.m[3][2]) + (self.m[2][3] * rhs.m[3][3]);
+        let m02 = (self.m[2][0] * rhs.m[0][0]) + (self.m[2][1] * rhs.m[1][0]) + (self.m[2][2] * rhs.m[2][0]) + (self.m[2][3] * rhs.m[3][0]);
+        let m12 = (self.m[2][0] * rhs.m[0][1]) + (self.m[2][1] * rhs.m[1][1]) + (self.m[2][2] * rhs.m[2][1]) + (self.m[2][3] * rhs.m[3][1]);
+        let m22 = (self.m[2][0] * rhs.m[0][2]) + (self.m[2][1] * rhs.m[1][2]) + (self.m[2][2] * rhs.m[2][2]) + (self.m[2][3] * rhs.m[3][2]);
+        let m32 = (self.m[2][0] * rhs.m[0][3]) + (self.m[2][1] * rhs.m[1][3]) + (self.m[2][2] * rhs.m[2][3]) + (self.m[2][3] * rhs.m[3][3]);
 
-        let m03 = (self.m[3][0] * rhs.m[0][0]) + (self.m[3][1] * rhs.m[0][1]) + (self.m[3][2] * rhs.m[0][2]) + (self.m[3][3] * rhs.m[0][3]);
-        let m13 = (self.m[3][0] * rhs.m[1][0]) + (self.m[3][1] * rhs.m[1][1]) + (self.m[3][2] * rhs.m[1][2]) + (self.m[3][3] * rhs.m[1][3]);
-        let m23 = (self.m[3][0] * rhs.m[2][0]) + (self.m[3][1] * rhs.m[2][1]) + (self.m[3][2] * rhs.m[2][2]) + (self.m[3][3] * rhs.m[2][3]);
-        let m33 = (self.m[3][0] * rhs.m[3][0]) + (self.m[3][1] * rhs.m[3][1]) + (self.m[3][2] * rhs.m[3][2]) + (self.m[3][3] * rhs.m[3][3]);
+        let m03 = (self.m[3][0] * rhs.m[0][0]) + (self.m[3][1] * rhs.m[1][0]) + (self.m[3][2] * rhs.m[2][0]) + (self.m[3][3] * rhs.m[3][0]);
+        let m13 = (self.m[3][0] * rhs.m[0][1]) + (self.m[3][1] * rhs.m[1][1]) + (self.m[3][2] * rhs.m[2][1]) + (self.m[3][3] * rhs.m[3][1]);
+        let m23 = (self.m[3][0] * rhs.m[0][2]) + (self.m[3][1] * rhs.m[1][2]) + (self.m[3][2] * rhs.m[2][2]) + (self.m[3][3] * rhs.m[3][2]);
+        let m33 = (self.m[3][0] * rhs.m[0][3]) + (self.m[3][1] * rhs.m[1][3]) + (self.m[3][2] * rhs.m[2][3]) + (self.m[3][3] * rhs.m[3][3]);
 
         return Matrix4x4 { m: [
             [m00, m10, m20, m30],
